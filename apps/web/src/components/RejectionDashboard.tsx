@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   RejectionRecord,
@@ -9,7 +9,7 @@ import {
   calculateAvgRejectionRate,
   calculateRecoveryRateFromRecords
 } from '@brainsait/rejection-tracker';
-import { ComplianceLetter } from '@brainsait/notification-service';
+import { useDashboardData } from '@/lib/hooks';
 
 /**
  * NEURAL: BrainSAIT branded dashboard with mesh gradient
@@ -22,39 +22,43 @@ interface DashboardProps {
 }
 
 export function RejectionDashboard({ userRole, locale }: DashboardProps) {
-  const [rejections, setRejections] = useState<RejectionRecord[]>([]);
-  const [complianceLetters, setComplianceLetters] = useState<ComplianceLetter[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error, refetch } = useDashboardData();
 
   const isRTL = locale === 'ar';
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      // TODO: Replace with actual API calls
-      // const [rejectionsData, lettersData] = await Promise.all([
-      //   fetch('/api/rejections/current-month').then(r => r.json()),
-      //   fetch('/api/compliance/letters/pending').then(r => r.json())
-      // ]);
-
-      // Mock data for now
-      setRejections([]);
-      setComplianceLetters([]);
-    } catch (error) {
-      console.error('Dashboard data fetch failed:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const rejections = data?.rejections || [];
+  const complianceLetters = data?.letters || [];
+  const analytics = data?.analytics;
 
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-white text-2xl">
           {locale === 'ar' ? 'جاري التحميل...' : 'Loading...'}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-400 text-2xl mb-4">
+            {locale === 'ar' ? '❌ خطأ في تحميل البيانات' : '❌ Error Loading Data'}
+          </div>
+          <p className="text-gray-400 mb-4">
+            {locale === 'ar'
+              ? 'تأكد من تشغيل الخادم على http://localhost:8000'
+              : 'Make sure the API server is running on http://localhost:8000'
+            }
+          </p>
+          <button
+            onClick={refetch}
+            className="px-6 py-2 bg-brainsait-cyan text-white rounded-lg hover:bg-brainsait-blue transition"
+          >
+            {locale === 'ar' ? 'إعادة المحاولة' : 'Retry'}
+          </button>
         </div>
       </div>
     );
