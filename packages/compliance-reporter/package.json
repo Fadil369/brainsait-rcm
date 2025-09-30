@@ -9,7 +9,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "xlsx": "^0.18.5",
+    "exceljs": "^4.4.0",
     "date-fns": "^3.3.0",
     "@brainsait/rejection-tracker": "*"
   },

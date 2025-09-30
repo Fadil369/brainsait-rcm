@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { RejectionRecord } from '@brainsait/rejection-tracker';
@@ -23,43 +23,36 @@ export class AdvancedReporter {
   async generateAdvancedReport(
     rejections: RejectionRecord[],
     config: ReportConfig
-  ): Promise<XLSX.WorkBook> {
-    const workbook = XLSX.utils.book_new();
+  ): Promise<ExcelJS.Workbook> {
+    const workbook = new ExcelJS.Workbook();
 
     // 1. Executive Summary Sheet
-    const summarySheet = this.generateExecutiveSummary(rejections);
-    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Executive Summary');
+    this.generateExecutiveSummary(workbook, rejections);
 
     // 2. Detailed Rejections Sheet
-    const detailsSheet = this.generateDetailedReport(rejections);
-    XLSX.utils.book_append_sheet(workbook, detailsSheet, 'Detailed Rejections');
+    this.generateDetailedReport(workbook, rejections);
 
     // 3. Insurance Company Analysis
-    const insuranceSheet = this.generateInsuranceAnalysis(rejections);
-    XLSX.utils.book_append_sheet(workbook, insuranceSheet, 'Insurance Analysis');
+    this.generateInsuranceAnalysis(workbook, rejections);
 
     // 4. Branch Performance Sheet
-    const branchSheet = this.generateBranchPerformance(rejections);
-    XLSX.utils.book_append_sheet(workbook, branchSheet, 'Branch Performance');
+    this.generateBranchPerformance(workbook, rejections);
 
     // 5. Trend Analysis Sheet
     if (config.includeTrends) {
-      const trendSheet = this.generateTrendAnalysis(rejections);
-      XLSX.utils.book_append_sheet(workbook, trendSheet, 'Trends');
+      this.generateTrendAnalysis(workbook, rejections);
     }
 
     // 6. Physician Performance Sheet
-    const physicianSheet = this.generatePhysicianReport(rejections);
-    XLSX.utils.book_append_sheet(workbook, physicianSheet, 'Physician Analysis');
+    this.generatePhysicianReport(workbook, rejections);
 
     // 7. Financial Impact Sheet
-    const financialSheet = this.generateFinancialImpact(rejections);
-    XLSX.utils.book_append_sheet(workbook, financialSheet, 'Financial Impact');
+    this.generateFinancialImpact(workbook, rejections);
 
     return workbook;
   }
 
-  private generateExecutiveSummary(rejections: RejectionRecord[]): XLSX.WorkSheet {
+  private generateExecutiveSummary(workbook: ExcelJS.Workbook, rejections: RejectionRecord[]): void {
     const totalBilled = rejections.reduce((sum, r) => sum + r.billedAmount.total, 0);
     const totalRejected = rejections.reduce((sum, r) => sum + r.rejectedAmount.total, 0);
     const totalRecovered = rejections
@@ -73,42 +66,66 @@ export class AdvancedReporter {
 
     const complianceRate = (rejections.filter(r => r.within30Days).length / rejections.length) * 100 || 0;
 
-    const summaryData = [
-      { 'Metric\nالمقياس': 'Total Claims\nإجمالي المطالبات', 'Value\nالقيمة': rejections.length },
-      { 'Metric\nالمقياس': 'Total Billed Amount\nإجمالي المبلغ المطالب', 'Value\nالقيمة': `SAR ${totalBilled.toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
-      { 'Metric\nالمقياس': 'Total Rejected Amount\nإجمالي المرفوضات', 'Value\nالقيمة': `SAR ${totalRejected.toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
-      { 'Metric\nالمقياس': 'Total Recovered Amount\nإجمالي الاسترداد', 'Value\nالقيمة': `SAR ${totalRecovered.toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
-      { 'Metric\nالمقياس': 'Average Rejection Rate\nمتوسط نسبة المرفوضات', 'Value\nالقيمة': `${avgRejectionRate.toFixed(2)}%` },
-      { 'Metric\nالمقياس': 'Average Recovery Rate\nمتوسط نسبة الاسترداد', 'Value\nالقيمة': `${avgRecoveryRate.toFixed(2)}%` },
-      { 'Metric\nالمقياس': 'Compliance Rate (30 Days)\nنسبة الالتزام', 'Value\nالقيمة': `${complianceRate.toFixed(2)}%` },
-      { 'Metric\nالمقياس': 'Net Loss\nصافي الخسارة', 'Value\nالقيمة': `SAR ${(totalRejected - totalRecovered).toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
+    const worksheet = workbook.addWorksheet('Executive Summary');
+
+    worksheet.columns = [
+      { header: 'Metric\nالمقياس', key: 'metric', width: 40 },
+      { header: 'Value\nالقيمة', key: 'value', width: 30 }
     ];
 
-    return XLSX.utils.json_to_sheet(summaryData);
+    worksheet.addRows([
+      { metric: 'Total Claims\nإجمالي المطالبات', value: rejections.length },
+      { metric: 'Total Billed Amount\nإجمالي المبلغ المطالب', value: `SAR ${totalBilled.toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
+      { metric: 'Total Rejected Amount\nإجمالي المرفوضات', value: `SAR ${totalRejected.toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
+      { metric: 'Total Recovered Amount\nإجمالي الاسترداد', value: `SAR ${totalRecovered.toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
+      { metric: 'Average Rejection Rate\nمتوسط نسبة المرفوضات', value: `${avgRejectionRate.toFixed(2)}%` },
+      { metric: 'Average Recovery Rate\nمتوسط نسبة الاسترداد', value: `${avgRecoveryRate.toFixed(2)}%` },
+      { metric: 'Compliance Rate (30 Days)\nنسبة الالتزام', value: `${complianceRate.toFixed(2)}%` },
+      { metric: 'Net Loss\nصافي الخسارة', value: `SAR ${(totalRejected - totalRecovered).toLocaleString('en-US', { minimumFractionDigits: 2 })}` }
+    ]);
   }
 
-  private generateDetailedReport(rejections: RejectionRecord[]): XLSX.WorkSheet {
-    const detailedData = rejections.map(r => ({
-      'ID': r.id,
-      'TPA\nشركة إدارة المطالبات': r.tpaName,
-      'Insurance\nشركة التأمين': r.insuranceCompany,
-      'Branch\nالفرع': r.branch,
-      'Reception Mode\nطريقة الاستلام': r.receptionMode,
-      'Billed (SAR)\nالمبلغ المطالب': r.billedAmount.total.toFixed(2),
-      'Rejected (SAR)\nالمبلغ المرفوض': r.rejectedAmount.total.toFixed(2),
-      'Rejection Rate %\nنسبة الرفض': `${r.initialRejectionRate.toFixed(2)}%`,
-      'Appealed (SAR)\nالمبلغ المستأنف': r.appealedAmount?.total.toFixed(2) || 'N/A',
-      'Recovered (SAR)\nالمبلغ المسترد': r.recoveredAmount?.total.toFixed(2) || 'N/A',
-      'Recovery Rate %\nنسبة الاسترداد': r.recoveryRate ? `${r.recoveryRate.toFixed(2)}%` : 'N/A',
-      'Within 30 Days\nخلال 30 يوم': r.within30Days ? 'Yes\nنعم' : 'No\nلا',
-      'Status\nالحالة': r.status,
-      'Received Date\nتاريخ الاستلام': format(r.rejectionReceivedDate, 'dd/MM/yyyy'),
+  private generateDetailedReport(workbook: ExcelJS.Workbook, rejections: RejectionRecord[]): void {
+    const worksheet = workbook.addWorksheet('Detailed Rejections');
+
+    worksheet.columns = [
+      { header: 'ID', key: 'id', width: 15 },
+      { header: 'TPA\nشركة إدارة المطالبات', key: 'tpa', width: 25 },
+      { header: 'Insurance\nشركة التأمين', key: 'insurance', width: 25 },
+      { header: 'Branch\nالفرع', key: 'branch', width: 20 },
+      { header: 'Reception Mode\nطريقة الاستلام', key: 'receptionMode', width: 15 },
+      { header: 'Billed (SAR)\nالمبلغ المطالب', key: 'billed', width: 15 },
+      { header: 'Rejected (SAR)\nالمبلغ المرفوض', key: 'rejected', width: 15 },
+      { header: 'Rejection Rate %\nنسبة الرفض', key: 'rejectionRate', width: 15 },
+      { header: 'Appealed (SAR)\nالمبلغ المستأنف', key: 'appealed', width: 15 },
+      { header: 'Recovered (SAR)\nالمبلغ المسترد', key: 'recovered', width: 15 },
+      { header: 'Recovery Rate %\nنسبة الاسترداد', key: 'recoveryRate', width: 15 },
+      { header: 'Within 30 Days\nخلال 30 يوم', key: 'within30Days', width: 15 },
+      { header: 'Status\nالحالة', key: 'status', width: 20 },
+      { header: 'Received Date\nتاريخ الاستلام', key: 'receivedDate', width: 15 }
+    ];
+
+    const rows = rejections.map(r => ({
+      id: r.id,
+      tpa: r.tpaName,
+      insurance: r.insuranceCompany,
+      branch: r.branch,
+      receptionMode: r.receptionMode,
+      billed: r.billedAmount.total.toFixed(2),
+      rejected: r.rejectedAmount.total.toFixed(2),
+      rejectionRate: `${r.initialRejectionRate.toFixed(2)}%`,
+      appealed: r.appealedAmount?.total.toFixed(2) || 'N/A',
+      recovered: r.recoveredAmount?.total.toFixed(2) || 'N/A',
+      recoveryRate: r.recoveryRate ? `${r.recoveryRate.toFixed(2)}%` : 'N/A',
+      within30Days: r.within30Days ? 'Yes\nنعم' : 'No\nلا',
+      status: r.status,
+      receivedDate: format(r.rejectionReceivedDate, 'dd/MM/yyyy')
     }));
 
-    return XLSX.utils.json_to_sheet(detailedData);
+    worksheet.addRows(rows);
   }
 
-  private generateInsuranceAnalysis(rejections: RejectionRecord[]): XLSX.WorkSheet {
+  private generateInsuranceAnalysis(workbook: ExcelJS.Workbook, rejections: RejectionRecord[]): void {
     const insuranceGroups = rejections.reduce((acc, r) => {
       if (!acc[r.insuranceCompany]) {
         acc[r.insuranceCompany] = [];
@@ -117,27 +134,39 @@ export class AdvancedReporter {
       return acc;
     }, {} as Record<string, RejectionRecord[]>);
 
-    const analysisData = Object.entries(insuranceGroups).map(([company, claims]) => {
+    const worksheet = workbook.addWorksheet('Insurance Analysis');
+
+    worksheet.columns = [
+      { header: 'Insurance Company\nشركة التأمين', key: 'company', width: 30 },
+      { header: 'Total Claims\nعدد المطالبات', key: 'totalClaims', width: 15 },
+      { header: 'Total Rejected (SAR)\nإجمالي المرفوضات', key: 'totalRejected', width: 20 },
+      { header: 'Total Recovered (SAR)\nإجمالي الاسترداد', key: 'totalRecovered', width: 20 },
+      { header: 'Avg Rejection Rate %\nمتوسط نسبة المرفوضات', key: 'avgRejectionRate', width: 20 },
+      { header: 'Compliance Rate %\nنسبة الالتزام', key: 'complianceRate', width: 15 },
+      { header: 'Performance\nالأداء', key: 'performance', width: 20 }
+    ];
+
+    const rows = Object.entries(insuranceGroups).map(([company, claims]) => {
       const totalRejected = claims.reduce((sum, r) => sum + r.rejectedAmount.total, 0);
       const totalRecovered = claims.reduce((sum, r) => sum + (r.recoveredAmount?.total || 0), 0);
       const avgRejectionRate = claims.reduce((sum, r) => sum + r.initialRejectionRate, 0) / claims.length;
       const complianceRate = (claims.filter(r => r.within30Days).length / claims.length) * 100;
 
       return {
-        'Insurance Company\nشركة التأمين': company,
-        'Total Claims\nعدد المطالبات': claims.length,
-        'Total Rejected (SAR)\nإجمالي المرفوضات': totalRejected.toFixed(2),
-        'Total Recovered (SAR)\nإجمالي الاسترداد': totalRecovered.toFixed(2),
-        'Avg Rejection Rate %\nمتوسط نسبة المرفوضات': `${avgRejectionRate.toFixed(2)}%`,
-        'Compliance Rate %\nنسبة الالتزام': `${complianceRate.toFixed(2)}%`,
-        'Performance\nالأداء': complianceRate > 80 ? 'Good\nجيد' : 'Needs Improvement\nيحتاج تحسين'
+        company,
+        totalClaims: claims.length,
+        totalRejected: totalRejected.toFixed(2),
+        totalRecovered: totalRecovered.toFixed(2),
+        avgRejectionRate: `${avgRejectionRate.toFixed(2)}%`,
+        complianceRate: `${complianceRate.toFixed(2)}%`,
+        performance: complianceRate > 80 ? 'Good\nجيد' : 'Needs Improvement\nيحتاج تحسين'
       };
     });
 
-    return XLSX.utils.json_to_sheet(analysisData);
+    worksheet.addRows(rows);
   }
 
-  private generateBranchPerformance(rejections: RejectionRecord[]): XLSX.WorkSheet {
+  private generateBranchPerformance(workbook: ExcelJS.Workbook, rejections: RejectionRecord[]): void {
     const branchGroups = rejections.reduce((acc, r) => {
       if (!acc[r.branch]) {
         acc[r.branch] = [];
@@ -146,25 +175,36 @@ export class AdvancedReporter {
       return acc;
     }, {} as Record<string, RejectionRecord[]>);
 
-    const branchData = Object.entries(branchGroups).map(([branch, claims]) => {
+    const worksheet = workbook.addWorksheet('Branch Performance');
+
+    worksheet.columns = [
+      { header: 'Branch\nالفرع', key: 'branch', width: 25 },
+      { header: 'Total Claims\nعدد المطالبات', key: 'totalClaims', width: 15 },
+      { header: 'Total Billed (SAR)\nإجمالي المطالبات', key: 'totalBilled', width: 20 },
+      { header: 'Total Rejected (SAR)\nإجمالي المرفوضات', key: 'totalRejected', width: 20 },
+      { header: 'Rejection Rate %\nنسبة المرفوضات', key: 'rejectionRate', width: 15 },
+      { header: 'Rank\nالترتيب', key: 'rank', width: 20 }
+    ];
+
+    const rows = Object.entries(branchGroups).map(([branch, claims]) => {
       const totalBilled = claims.reduce((sum, r) => sum + r.billedAmount.total, 0);
       const totalRejected = claims.reduce((sum, r) => sum + r.rejectedAmount.total, 0);
       const avgRejectionRate = claims.reduce((sum, r) => sum + r.initialRejectionRate, 0) / claims.length;
 
       return {
-        'Branch\nالفرع': branch,
-        'Total Claims\nعدد المطالبات': claims.length,
-        'Total Billed (SAR)\nإجمالي المطالبات': totalBilled.toFixed(2),
-        'Total Rejected (SAR)\nإجمالي المرفوضات': totalRejected.toFixed(2),
-        'Rejection Rate %\nنسبة المرفوضات': `${avgRejectionRate.toFixed(2)}%`,
-        'Rank\nالترتيب': avgRejectionRate < 10 ? 'Excellent\nممتاز' : avgRejectionRate < 20 ? 'Good\nجيد' : 'Needs Improvement\nيحتاج تحسين'
+        branch,
+        totalClaims: claims.length,
+        totalBilled: totalBilled.toFixed(2),
+        totalRejected: totalRejected.toFixed(2),
+        rejectionRate: `${avgRejectionRate.toFixed(2)}%`,
+        rank: avgRejectionRate < 10 ? 'Excellent\nممتاز' : avgRejectionRate < 20 ? 'Good\nجيد' : 'Needs Improvement\nيحتاج تحسين'
       };
     });
 
-    return XLSX.utils.json_to_sheet(branchData);
+    worksheet.addRows(rows);
   }
 
-  private generateTrendAnalysis(rejections: RejectionRecord[]): XLSX.WorkSheet {
+  private generateTrendAnalysis(workbook: ExcelJS.Workbook, rejections: RejectionRecord[]): void {
     // Group by month
     const monthlyData = rejections.reduce((acc, r) => {
       const month = format(r.rejectionReceivedDate, 'MMM yyyy');
@@ -175,31 +215,48 @@ export class AdvancedReporter {
       return acc;
     }, {} as Record<string, RejectionRecord[]>);
 
-    const trendData = Object.entries(monthlyData).map(([month, claims]) => {
+    const worksheet = workbook.addWorksheet('Trends');
+
+    worksheet.columns = [
+      { header: 'Month\nالشهر', key: 'month', width: 20 },
+      { header: 'Claims Count\nعدد المطالبات', key: 'claimsCount', width: 15 },
+      { header: 'Avg Rejection Rate %\nمتوسط نسبة المرفوضات', key: 'avgRejectionRate', width: 20 },
+      { header: 'Total Rejected (SAR)\nإجمالي المرفوضات', key: 'totalRejected', width: 20 }
+    ];
+
+    const rows = Object.entries(monthlyData).map(([month, claims]) => {
       const avgRejectionRate = claims.reduce((sum, r) => sum + r.initialRejectionRate, 0) / claims.length;
       const totalAmount = claims.reduce((sum, r) => sum + r.rejectedAmount.total, 0);
 
       return {
-        'Month\nالشهر': month,
-        'Claims Count\nعدد المطالبات': claims.length,
-        'Avg Rejection Rate %\nمتوسط نسبة المرفوضات': `${avgRejectionRate.toFixed(2)}%`,
-        'Total Rejected (SAR)\nإجمالي المرفوضات': totalAmount.toFixed(2)
+        month,
+        claimsCount: claims.length,
+        avgRejectionRate: `${avgRejectionRate.toFixed(2)}%`,
+        totalRejected: totalAmount.toFixed(2)
       };
     });
 
-    return XLSX.utils.json_to_sheet(trendData);
+    worksheet.addRows(rows);
   }
 
-  private generatePhysicianReport(rejections: RejectionRecord[]): XLSX.WorkSheet {
-    // Placeholder - would need physician data
-    const placeholder = [
-      { 'Physician ID\nرقم الطبيب': 'Coming Soon', 'Name\nالاسم': 'Requires Physician Data', 'Performance\nالأداء': 'N/A' }
+  private generatePhysicianReport(workbook: ExcelJS.Workbook, rejections: RejectionRecord[]): void {
+    const worksheet = workbook.addWorksheet('Physician Analysis');
+
+    worksheet.columns = [
+      { header: 'Physician ID\nرقم الطبيب', key: 'physicianId', width: 20 },
+      { header: 'Name\nالاسم', key: 'name', width: 30 },
+      { header: 'Performance\nالأداء', key: 'performance', width: 20 }
     ];
 
-    return XLSX.utils.json_to_sheet(placeholder);
+    // Placeholder - would need physician data
+    worksheet.addRow({
+      physicianId: 'Coming Soon',
+      name: 'Requires Physician Data',
+      performance: 'N/A'
+    });
   }
 
-  private generateFinancialImpact(rejections: RejectionRecord[]): XLSX.WorkSheet {
+  private generateFinancialImpact(workbook: ExcelJS.Workbook, rejections: RejectionRecord[]): void {
     const totalBilled = rejections.reduce((sum, r) => sum + r.billedAmount.total, 0);
     const totalRejected = rejections.reduce((sum, r) => sum + r.rejectedAmount.total, 0);
     const totalAppealed = rejections.reduce((sum, r) => sum + (r.appealedAmount?.total || 0), 0);
@@ -209,16 +266,21 @@ export class AdvancedReporter {
     const rejectionImpact = (totalRejected / totalBilled) * 100;
     const recoveryEfficiency = (totalRecovered / totalAppealed) * 100 || 0;
 
-    const financialData = [
-      { 'Category\nالفئة': 'Total Revenue Expected\nإجمالي الإيرادات المتوقعة', 'Amount (SAR)\nالمبلغ': totalBilled.toFixed(2) },
-      { 'Category\nالفئة': 'Total Rejections\nإجمالي المرفوضات', 'Amount (SAR)\nالمبلغ': totalRejected.toFixed(2) },
-      { 'Category\nالفئة': 'Total Appealed\nإجمالي المستأنف', 'Amount (SAR)\nالمبلغ': totalAppealed.toFixed(2) },
-      { 'Category\nالفئة': 'Total Recovered\nإجمالي المسترد', 'Amount (SAR)\nالمبلغ': totalRecovered.toFixed(2) },
-      { 'Category\nالفئة': 'Net Loss\nصافي الخسارة', 'Amount (SAR)\nالمبلغ': netLoss.toFixed(2) },
-      { 'Category\nالفئة': 'Rejection Impact %\nتأثير المرفوضات', 'Amount (SAR)\nالمبلغ': `${rejectionImpact.toFixed(2)}%` },
-      { 'Category\nالفئة': 'Recovery Efficiency %\nكفاءة الاسترداد', 'Amount (SAR)\nالمبلغ': `${recoveryEfficiency.toFixed(2)}%` },
+    const worksheet = workbook.addWorksheet('Financial Impact');
+
+    worksheet.columns = [
+      { header: 'Category\nالفئة', key: 'category', width: 40 },
+      { header: 'Amount (SAR)\nالمبلغ', key: 'amount', width: 25 }
     ];
 
-    return XLSX.utils.json_to_sheet(financialData);
+    worksheet.addRows([
+      { category: 'Total Revenue Expected\nإجمالي الإيرادات المتوقعة', amount: totalBilled.toFixed(2) },
+      { category: 'Total Rejections\nإجمالي المرفوضات', amount: totalRejected.toFixed(2) },
+      { category: 'Total Appealed\nإجمالي المستأنف', amount: totalAppealed.toFixed(2) },
+      { category: 'Total Recovered\nإجمالي المسترد', amount: totalRecovered.toFixed(2) },
+      { category: 'Net Loss\nصافي الخسارة', amount: netLoss.toFixed(2) },
+      { category: 'Rejection Impact %\nتأثير المرفوضات', amount: `${rejectionImpact.toFixed(2)}%` },
+      { category: 'Recovery Efficiency %\nكفاءة الاسترداد', amount: `${recoveryEfficiency.toFixed(2)}%` }
+    ]);
   }
 }
