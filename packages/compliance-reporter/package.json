@@ -1,0 +1,20 @@
+{
+  "name": "@brainsait/compliance-reporter",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5",
+    "date-fns": "^3.3.0",
+    "@brainsait/rejection-tracker": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "@types/node": "^20.11.0"
+  }
+}

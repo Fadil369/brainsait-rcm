@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  # FastAPI Backend
+  api:
+    build: ./apps/api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=mongodb://mongodb:27017/brainsait
+      - REDIS_URL=redis://redis:6379
+      - NPHIES_API_KEY=${NPHIES_API_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - ALLOWED_ORIGINS=http://localhost:3000,https://brainsait.com
+    depends_on:
+      - mongodb
+      - redis
+    volumes:
+      - ./apps/api:/app
+      - ./logs:/var/log/brainsait
+    networks:
+      - brainsait-network
+    restart: unless-stopped
+
+  # Next.js Web Dashboard
+  web:
+    build: ./apps/web
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://api:8000
+      - NODE_ENV=production
+    depends_on:
+      - api
+    networks:
+      - brainsait-network
+    restart: unless-stopped
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
+      - MONGO_INITDB_DATABASE=brainsait
+    volumes:
+      - mongodb-data:/data/db
+      - ./infrastructure/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - brainsait-network
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - brainsait-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  # Background Worker for scheduled tasks
+  worker:
+    build: ./apps/api
+    command: celery -A worker worker --loglevel=info
+    environment:
+      - DATABASE_URL=mongodb://mongodb:27017/brainsait
+      - REDIS_URL=redis://redis:6379
+      - NPHIES_API_KEY=${NPHIES_API_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+    depends_on:
+      - mongodb
+      - redis
+    volumes:
+      - ./apps/api:/app
+    networks:
+      - brainsait-network
+    restart: unless-stopped
+
+volumes:
+  mongodb-data:
+  redis-data:
+
+networks:
+  brainsait-network:
+    driver: bridge

@@ -1,0 +1,25 @@
+# Cloudflare Workers configuration for brainsait.com
+
+name = "brainsait-rcm"
+main = "apps/web"
+compatibility_date = "2024-01-01"
+
+# Account details (replace with your actual values)
+# account_id = "your_cloudflare_account_id"
+
+# Custom domain configuration
+routes = [
+  { pattern = "rcm.brainsait.com", custom_domain = true }
+]
+
+# Environment variables for production
+[env.production]
+vars = { ENVIRONMENT = "production" }
+
+# Build configuration for Next.js on Cloudflare Pages
+[build]
+command = "npm run build"
+cwd = "apps/web"
+
+[build.upload]
+format = "service-worker"
