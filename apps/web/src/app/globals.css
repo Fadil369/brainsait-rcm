@@ -9,7 +9,7 @@
   }
 
   * {
-    @apply border-border;
+    @apply border-gray-800;
   }
 
   body {
