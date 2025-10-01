@@ -1,0 +1,46 @@
+services:
+  # FastAPI Backend
+  - type: web
+    name: brainsait-api
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: ./apps/api
+    plan: free
+    branch: main
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: MONGODB_DATABASE
+        value: brainsait_rcm
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 30
+      - key: ALLOWED_ORIGINS
+        value: https://e423374a.brainsait-rcm.pages.dev,https://brainsait-rcm.pages.dev
+      - key: ALLOW_CREDENTIALS
+        value: true
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      - key: REDIS_URL
+        value: redis://localhost:6379
+      - key: NPHIES_API_URL
+        value: https://api.nphies.sa
+      - key: NPHIES_API_KEY
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_WHATSAPP_FROM
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+
+databases:
+  - name: brainsait-mongodb
+    databaseName: brainsait_rcm
+    plan: free
