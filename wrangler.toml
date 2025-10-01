@@ -23,3 +23,6 @@ cwd = "apps/web"
 
 [build.upload]
 format = "service-worker"
+
+# Pages build output directory
+pages_build_output_dir = "apps/web/out"
