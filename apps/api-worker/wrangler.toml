@@ -1,0 +1,55 @@
+name = "brainsait-rcm-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# D1 Database Binding
+[[d1_databases]]
+binding = "DB"
+database_name = "brainsait-audit-logs"
+database_id = "07fdaaaa-31bc-4565-852d-db904dd2ba01"
+
+# KV Namespaces
+[[kv_namespaces]]
+binding = "CACHE"
+id = "31e992ccf15f46778a1e0b974aea62ba" # brainsait-identity-iod-CACHE
+
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "7b6626f2032d4be1ba7a0b4e6f21b4a0" # brainsait-identity-iod-SESSIONS
+
+[[kv_namespaces]]
+binding = "AUDIT_LOGS_KV"
+id = "ffb76ea061414b52af9e88675d389dca" # brainsait-healthcare-prod-production-AUDIT_LOGS
+
+# R2 Buckets
+[[r2_buckets]]
+binding = "DOCUMENTS"
+bucket_name = "brainsait-identity-documents"
+
+[[r2_buckets]]
+binding = "BACKUPS"
+bucket_name = "brainsait-backups-staging"
+
+# Environment Variables
+[vars]
+ENVIRONMENT = "production"
+JWT_ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = "30"
+REFRESH_TOKEN_EXPIRE_DAYS = "7"
+
+# Secrets (set with: wrangler secret put <NAME>)
+# JWT_SECRET
+# ENCRYPTION_KEY
+# NPHIES_API_KEY
+# TWILIO_ACCOUNT_SID
+# TWILIO_AUTH_TOKEN
+# TWILIO_WHATSAPP_FROM
+
+# Limits
+[limits]
+cpu_ms = 50
+
+# Development
+[dev]
+port = 8787

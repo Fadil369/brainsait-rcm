@@ -1,0 +1,28 @@
+{
+  "name": "@brainsait/api-worker",
+  "version": "1.0.0",
+  "description": "BrainSAIT RCM API - Cloudflare Workers",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest",
+    "cf-typegen": "wrangler types"
+  },
+  "keywords": ["cloudflare", "workers", "hono", "healthcare", "rcm"],
+  "author": "BrainSAIT",
+  "license": "MIT",
+  "dependencies": {
+    "hono": "^4.0.0",
+    "bcryptjs": "^2.4.3",
+    "jose": "^5.2.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240129.0",
+    "@types/bcryptjs": "^2.4.6",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.0",
+    "wrangler": "^3.78.0"
+  }
+}
