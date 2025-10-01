@@ -64,6 +64,14 @@ async def lifespan(app: FastAPI):
         # Test connection
         await db_client.admin.command('ping')
         logger.info("✅ MongoDB connected successfully")
+        
+        # Create database indexes for authentication
+        try:
+            from utils.database import create_indexes
+            await create_indexes(db_client.brainsait)
+        except Exception as idx_exc:
+            logger.warning("Failed to create indexes: %s", idx_exc)
+            
     except Exception as exc:
         logger.error(
             "MongoDB connection failed: %s. Running without database.",
@@ -85,6 +93,16 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# Include authentication routers
+try:
+    from auth.router import router as auth_router
+    from admin.router import router as admin_router
+    app.include_router(auth_router)
+    app.include_router(admin_router)
+    logger.info("✅ Authentication and admin routers loaded")
+except Exception as router_exc:
+    logger.warning("Failed to load auth routers: %s", router_exc)
 
 # CORS middleware
 raw_origins = [origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",") if origin.strip()]
@@ -119,6 +137,11 @@ def get_db_client() -> AsyncIOMotorClient:
     if db_client is None:
         raise HTTPException(status_code=503, detail="Database not available. Please start MongoDB.")
     return db_client
+
+# Export db for auth modules
+db = None
+if db_client:
+    db = db_client.brainsait
 
 # Models
 class RejectionRecord(BaseModel):

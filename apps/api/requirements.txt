@@ -8,6 +8,11 @@ pydantic-settings==2.1.0
 python-jose[cryptography]==3.4.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.18
+
+# Authentication & OAuth
+google-auth==2.37.0
+google-auth-oauthlib==1.2.1
+google-auth-httplib2==0.2.0
 fhir.resources==7.1.0
 redis==5.0.1
 celery==5.3.4

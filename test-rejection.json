@@ -1,0 +1,16 @@
+{
+  "claim_id": "CLM-TEST-001",
+  "patient_id": "PAT-12345",
+  "patient_name": "Test Patient",
+  "tpa_name": "MedGulf TPA",
+  "insurance_company": "Bupa Arabia",
+  "policy_number": "POL-2025-001",
+  "billed_amount": {"net": 500000, "vat": 75000, "total": 575000},
+  "rejected_amount": {"net": 200000, "vat": 30000, "total": 230000},
+  "service_date": "2025-01-15",
+  "submission_date": "2025-01-20",
+  "rejection_reason": "Insufficient documentation",
+  "rejection_code": "MED-001",
+  "physician_name": "Dr. Test",
+  "specialty": "Cardiology"
+}
