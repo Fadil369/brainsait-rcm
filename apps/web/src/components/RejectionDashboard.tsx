@@ -10,6 +10,14 @@ import {
   calculateRecoveryRateFromRecords
 } from '@brainsait/rejection-tracker';
 import { useDashboardData } from '@/lib/hooks';
+import { CreateRejectionModal } from './CreateRejectionModal';
+import { CreateAppealModal } from './CreateAppealModal';
+import { FraudDetectionModal } from './FraudDetectionModal';
+import { PredictiveAnalyticsModal } from './PredictiveAnalyticsModal';
+import { WhatsAppModal } from './WhatsAppModal';
+import { ComplianceLetterModal } from './ComplianceLetterModal';
+import { NPHIESModal } from './NPHIESModal';
+import { AuditTrailModal } from './AuditTrailModal';
 
 /**
  * NEURAL: BrainSAIT branded dashboard with mesh gradient
@@ -29,6 +37,17 @@ export function RejectionDashboard({ userRole, locale }: DashboardProps) {
   const rejections = data?.rejections || [];
   const complianceLetters = data?.letters || [];
   const analytics = data?.analytics;
+
+  // Modal states
+  const [showCreateRejection, setShowCreateRejection] = useState(false);
+  const [showCreateAppeal, setShowCreateAppeal] = useState(false);
+  const [showFraudDetection, setShowFraudDetection] = useState(false);
+  const [showPredictiveAnalytics, setShowPredictiveAnalytics] = useState(false);
+  const [showWhatsApp, setShowWhatsApp] = useState(false);
+  const [showComplianceLetter, setShowComplianceLetter] = useState(false);
+  const [showNPHIES, setShowNPHIES] = useState(false);
+  const [showAuditTrail, setShowAuditTrail] = useState(false);
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
 
   if (loading) {
     return (
@@ -134,6 +153,58 @@ export function RejectionDashboard({ userRole, locale }: DashboardProps) {
           />
         </div>
 
+        {/* Actions Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <ActionButton
+            icon="➕"
+            label={locale === 'ar' ? 'إضافة مرفوض' : 'Add Rejection'}
+            onClick={() => setShowCreateRejection(true)}
+            locale={locale}
+          />
+          <ActionButton
+            icon="📝"
+            label={locale === 'ar' ? 'إنشاء استئناف' : 'Create Appeal'}
+            onClick={() => setShowCreateAppeal(true)}
+            locale={locale}
+          />
+          <ActionButton
+            icon="🔍"
+            label={locale === 'ar' ? 'كشف الاحتيال' : 'Fraud Detection'}
+            onClick={() => setShowFraudDetection(true)}
+            locale={locale}
+          />
+          <ActionButton
+            icon="📈"
+            label={locale === 'ar' ? 'تحليلات تنبؤية' : 'Predictive Analytics'}
+            onClick={() => setShowPredictiveAnalytics(true)}
+            locale={locale}
+          />
+          <ActionButton
+            icon="📄"
+            label={locale === 'ar' ? 'خطاب امتثال' : 'Compliance Letter'}
+            onClick={() => setShowComplianceLetter(true)}
+            locale={locale}
+          />
+          <ActionButton
+            icon="🏥"
+            label={locale === 'ar' ? 'تقديم NPHIES' : 'NPHIES Submit'}
+            onClick={() => setShowNPHIES(true)}
+            locale={locale}
+          />
+          <ActionButton
+            icon="💬"
+            label={locale === 'ar' ? 'واتساب' : 'WhatsApp'}
+            onClick={() => setShowWhatsApp(true)}
+            locale={locale}
+          />
+          <ActionButton
+            icon="🔍"
+            label={locale === 'ar' ? 'سجل المراجعة' : 'Audit Trail'}
+            onClick={() => setShowAuditTrail(true)}
+            locale={locale}
+          />
+        </div>
+
         {/* Main Content */}
         <div className="glass-morphism rounded-2xl p-6">
           <div className="text-center text-gray-400 py-12">
@@ -145,26 +216,88 @@ export function RejectionDashboard({ userRole, locale }: DashboardProps) {
             </p>
             <p className="text-sm">
               {locale === 'ar'
-                ? 'النظام جاهز للاستخدام. ابدأ بإضافة بيانات المرفوضات.'
-                : 'System is ready. Start by adding rejection data.'
+                ? 'استخدم الأزرار أعلاه للوصول إلى جميع الميزات'
+                : 'Use the buttons above to access all features'
               }
             </p>
           </div>
         </div>
       </div>
 
-      {/* Floating Action Button */}
-      {userRole === 'ADMIN' && (
-        <motion.button
-          className="fixed bottom-8 right-8 bg-gradient-to-r from-brainsait-cyan to-brainsait-blue
-                     text-white rounded-full p-4 shadow-2xl"
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          <span className="text-2xl">📈</span>
-        </motion.button>
-      )}
+      {/* Modals */}
+      <CreateRejectionModal
+        isOpen={showCreateRejection}
+        onClose={() => setShowCreateRejection(false)}
+        onSuccess={refetch}
+        locale={locale}
+      />
+      <CreateAppealModal
+        isOpen={showCreateAppeal}
+        onClose={() => setShowCreateAppeal(false)}
+        onSuccess={refetch}
+        locale={locale}
+      />
+      <FraudDetectionModal
+        isOpen={showFraudDetection}
+        onClose={() => setShowFraudDetection(false)}
+        locale={locale}
+      />
+      <PredictiveAnalyticsModal
+        isOpen={showPredictiveAnalytics}
+        onClose={() => setShowPredictiveAnalytics(false)}
+        locale={locale}
+      />
+      <WhatsAppModal
+        isOpen={showWhatsApp}
+        onClose={() => setShowWhatsApp(false)}
+        locale={locale}
+      />
+      <ComplianceLetterModal
+        isOpen={showComplianceLetter}
+        onClose={() => setShowComplianceLetter(false)}
+        onSuccess={refetch}
+        locale={locale}
+      />
+      <NPHIESModal
+        isOpen={showNPHIES}
+        onClose={() => setShowNPHIES(false)}
+        onSuccess={refetch}
+        locale={locale}
+      />
+      <AuditTrailModal
+        isOpen={showAuditTrail}
+        onClose={() => setShowAuditTrail(false)}
+        locale={locale}
+      />
+
     </div>
+  );
+}
+
+/**
+ * Action Button Component
+ */
+function ActionButton({
+  icon,
+  label,
+  onClick,
+  locale
+}: {
+  icon: string;
+  label: string;
+  onClick: () => void;
+  locale: Locale;
+}) {
+  return (
+    <motion.button
+      onClick={onClick}
+      whileHover={{ scale: 1.05, y: -5 }}
+      whileTap={{ scale: 0.95 }}
+      className="glass-morphism p-4 rounded-xl hover:bg-white/10 transition-colors"
+    >
+      <div className="text-3xl mb-2">{icon}</div>
+      <div className="text-white text-sm font-semibold">{label}</div>
+    </motion.button>
   );
 }
 
