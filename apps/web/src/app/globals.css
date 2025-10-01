@@ -4,26 +4,151 @@
 
 @layer base {
   :root {
-    --background: 0 0% 0%;
-    --foreground: 0 0% 100%;
+    color-scheme: dark;
+    --background: 222 67% 5%;
+    --foreground: 210 40% 96%;
+    --muted: 215 27% 17%;
+    --muted-foreground: 217 15% 65%;
+    --accent: 191 97% 54%;
+    --accent-foreground: 198 100% 98%;
+    --secondary: 266 83% 58%;
+    --secondary-foreground: 266 100% 96%;
+    --danger: 0 82% 63%;
+    --warning: 35 92% 62%;
+    --success: 147 68% 45%;
+    --surface: rgba(15, 23, 42, 0.72);
+    --surface-elevated: rgba(15, 23, 42, 0.92);
+    --surface-border: rgba(148, 163, 184, 0.25);
+    --shadow-soft: 0 40px 120px -60px rgba(14, 165, 233, 0.65);
+    --shadow-strong: 0 50px 150px -70px rgba(91, 33, 182, 0.55);
+    --radius-lg: 1.5rem;
+    --radius-xl: 2.25rem;
   }
 
   * {
-    @apply border-gray-800;
+    @apply border-slate-800/60;
   }
 
   body {
-    @apply bg-black text-white;
+    min-height: 100vh;
+    background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(circle at 0% 0%, rgba(91, 33, 182, 0.35), transparent 45%),
+      radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.3), transparent 40%),
+      radial-gradient(circle at 50% 100%, rgba(14, 165, 233, 0.2), transparent 55%),
+      linear-gradient(135deg, rgba(2, 6, 23, 0.95) 0%, rgba(7, 11, 29, 0.98) 100%);
+    color: hsl(var(--foreground));
+    font-feature-settings: 'liga' 1, 'kern' 1;
+    scroll-behavior: smooth;
+    text-rendering: optimizeLegibility;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.12), transparent 45%),
+      radial-gradient(circle at 80% 10%, rgba(244, 114, 182, 0.1), transparent 40%);
+    z-index: -1;
+  }
+
+  ::selection {
+    background: rgba(14, 165, 233, 0.4);
+    color: hsl(var(--foreground));
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.25);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.45);
+  }
+
+  [dir='rtl'] {
+    font-family: var(--font-cairo), system-ui, sans-serif;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
 @layer components {
   .glass-morphism {
-    @apply bg-white/10 backdrop-blur-lg border border-white/20 shadow-2xl;
+    background: var(--surface);
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
+    border: 1px solid var(--surface-border);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .glass-panel {
+    background: var(--surface-elevated);
+    -webkit-backdrop-filter: blur(32px);
+    backdrop-filter: blur(32px);
+    border: 1px solid var(--surface-border);
+    box-shadow: var(--shadow-strong);
+  }
+
+  .surface-card {
+    position: relative;
+    overflow: hidden;
+    padding: 1.5rem;
+    border-radius: 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .surface-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    border: 1px solid rgba(226, 232, 240, 0.08);
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.8);
   }
 
   .glass-morphism-dark {
-    @apply bg-black/30 backdrop-blur-lg border border-white/10 shadow-2xl;
+    background: rgba(3, 7, 18, 0.72);
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: var(--shadow-strong);
   }
 
   /* RTL Support */
@@ -37,7 +162,15 @@
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  /* Removed legacy text-balance helper to avoid cross-browser issues */
+
+  .shadow-glow {
+    box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.18), 0 20px 60px -30px rgba(14, 165, 233, 0.55);
+  }
+
+  .backdrop-gradient {
+    background:
+      radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.12), transparent 45%),
+      radial-gradient(circle at 80% 20%, rgba(244, 114, 182, 0.08), transparent 40%);
   }
 }

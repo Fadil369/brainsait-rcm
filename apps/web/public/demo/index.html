@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="BrainSAIT RCM public demo shell showcasing the next-generation claims management experience." />
+    <title>BrainSAIT RCM Demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Cairo:wght@400;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./demo.css" />
+    <script>
+      window.demoConfig = {
+        apiBaseUrl: localStorage.getItem('brainsait-demo-api') || 'https://api.brainsait.com',
+        locale: localStorage.getItem('brainsait-demo-locale') || 'en'
+      };
+    </script>
+  </head>
+  <body>
+    <a class="skip-to-content" href="#main">Skip to main content</a>
+    <header class="site-header" role="banner">
+      <div class="site-header__inner">
+        <div class="brand">
+          <div class="brand__icon" aria-hidden="true">🧠</div>
+          <div class="brand__copy">
+            <span class="brand__title">BrainSAIT RCM</span>
+            <span class="brand__subtitle">AI-first Claims Management</span>
+          </div>
+        </div>
+        <nav class="site-nav" aria-label="Primary">
+          <ul class="site-nav__list">
+            <li><a href="#experience">Experience</a></li>
+            <li><a href="#insights">Insights</a></li>
+            <li><a href="#integrations">Integrations</a></li>
+            <li><a href="#playground">Playground</a></li>
+          </ul>
+        </nav>
+        <div class="site-header__cta">
+          <button class="btn btn--ghost" data-action="toggle-locale" type="button">Toggle AR / EN</button>
+          <a class="btn" href="https://brainsait.com" target="_blank" rel="noopener noreferrer">Book a demo</a>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="main" tabindex="-1">
+      <section class="hero" id="experience">
+        <div class="hero__content">
+          <p class="eyebrow">Cloud-native + NPHIES compliant</p>
+          <h1 class="hero__title">One cockpit for every claim, rejection, and compliance letter.</h1>
+          <p class="hero__subtitle">
+            Monitor live operations, spot AI alerts, and trigger workflows in seconds. Built for bilingual teams operating across Saudi Arabia.
+          </p>
+          <div class="hero__actions">
+            <button class="btn btn--primary" data-action="open-dashboard" type="button">Launch interactive dashboard</button>
+            <button class="btn btn--secondary" data-action="sync-now" type="button">Sync live data</button>
+          </div>
+          <div class="hero__meta" aria-live="polite">
+            <span class="meta-item">Last refreshed: <span data-meta="last-refreshed">—</span></span>
+            <span class="meta-item">Environment: <span data-meta="environment">Production-ready</span></span>
+          </div>
+        </div>
+        <div class="hero__preview" aria-hidden="true">
+          <div class="preview-card">
+            <div class="preview-card__heading">
+              <span class="preview-card__title">Realtime analytics</span>
+              <span class="preview-card__badge">AI boosted</span>
+            </div>
+            <dl class="preview-card__stats">
+              <div>
+                <dt>Monthly claims</dt>
+                <dd data-metric="claims-total">—</dd>
+              </div>
+              <div>
+                <dt>Rejection rate</dt>
+                <dd data-metric="rejection-rate">—</dd>
+              </div>
+              <div>
+                <dt>Recovery rate</dt>
+                <dd data-metric="recovery-rate">—</dd>
+              </div>
+            </dl>
+            <div class="preview-card__sparkline" data-sparkline>
+              <svg viewBox="0 0 160 48" aria-hidden="true">
+                <path d="M0 46 L20 30 L40 34 L60 18 L80 24 L100 10 L120 14 L140 6 L160 12" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="status" aria-labelledby="status-heading">
+        <div class="section-heading">
+          <h2 id="status-heading">Platform heartbeat</h2>
+          <p class="text-muted">Live signals pulled directly from the FastAPI backend. Chips update automatically.</p>
+        </div>
+  <ul class="status-grid">
+          <li class="status-chip status-chip--pending" data-status-chip="api">
+            <span class="status-chip__dot" aria-hidden="true"></span>
+            <span class="status-chip__label">API health</span>
+            <span class="status-chip__value" data-status-value aria-live="polite">Checking…</span>
+          </li>
+          <li class="status-chip status-chip--pending" data-status-chip="database">
+            <span class="status-chip__dot" aria-hidden="true"></span>
+            <span class="status-chip__label">Database</span>
+            <span class="status-chip__value" data-status-value aria-live="polite">Checking…</span>
+          </li>
+          <li class="status-chip status-chip--pending" data-status-chip="letters">
+            <span class="status-chip__dot" aria-hidden="true"></span>
+            <span class="status-chip__label">Pending letters</span>
+            <span class="status-chip__value" data-status-value aria-live="polite">Checking…</span>
+          </li>
+          <li class="status-chip status-chip--pending" data-status-chip="alerts">
+            <span class="status-chip__dot" aria-hidden="true"></span>
+            <span class="status-chip__label">Fraud alerts</span>
+            <span class="status-chip__value" data-status-value aria-live="polite">Checking…</span>
+          </li>
+        </ul>
+      </section>
+
+      <section class="tabs" aria-labelledby="tabs-heading" id="insights">
+        <div class="section-heading">
+          <h2 id="tabs-heading">Guided workflows</h2>
+          <p class="text-muted">Switch across the core journeys. Each tab mirrors live actions inside the production dashboard.</p>
+        </div>
+        <div class="tabset" data-tab-set>
+          <div class="tabset__list" role="tablist" aria-label="Feature journeys">
+            <button role="tab" id="tab-claims" aria-selected="true" aria-controls="panel-claims" data-tab-button class="tabset__tab">
+              Claims automation
+            </button>
+            <button role="tab" id="tab-compliance" aria-selected="false" aria-controls="panel-compliance" data-tab-button class="tabset__tab">
+              Compliance center
+            </button>
+            <button role="tab" id="tab-ai" aria-selected="false" aria-controls="panel-ai" data-tab-button class="tabset__tab">
+              AI copilots
+            </button>
+          </div>
+          <div class="tabset__panels">
+            <section role="tabpanel" id="panel-claims" aria-labelledby="tab-claims" data-tab-panel>
+              <h3>Automate everything that slows reimbursements.</h3>
+              <ul class="feature-list">
+                <li>Bulk ingest NPHIES feeds with smart validation.</li>
+                <li>Track rejection lifecycles with SLA timers and assignees.</li>
+                <li>Trigger appeals or letters with a single shortcut.</li>
+              </ul>
+              <div class="feature-actions">
+                <button class="btn btn--secondary" data-action="create-rejection" type="button">Create rejection</button>
+                <button class="btn btn--ghost" data-action="view-rejections" type="button">View rejection queue</button>
+              </div>
+            </section>
+            <section role="tabpanel" id="panel-compliance" aria-labelledby="tab-compliance" data-tab-panel hidden>
+              <h3>Stay ahead of audits and regulatory deadlines.</h3>
+              <ul class="feature-list">
+                <li>Generate bilingual compliance letters with approved templates.</li>
+                <li>Live view of overdue communications and response dates.</li>
+                <li>WhatsApp and email notifications with verified sender IDs.</li>
+              </ul>
+              <div class="feature-actions">
+                <button class="btn btn--secondary" data-action="generate-letter" type="button">Issue compliance letter</button>
+                <button class="btn btn--ghost" data-action="open-notifications" type="button">Notification center</button>
+              </div>
+            </section>
+            <section role="tabpanel" id="panel-ai" aria-labelledby="tab-ai" data-tab-panel hidden>
+              <h3>Embedded AI copilots for risk and forecasting.</h3>
+              <ul class="feature-list">
+                <li>Fraud detector runs five ML algorithms in parallel.</li>
+                <li>Predictive analytics forecasts rejection rates up to 90 days.</li>
+                <li>Audit trail heatmaps flag anomalies instantly.</li>
+              </ul>
+              <div class="feature-actions">
+                <button class="btn btn--secondary" data-action="run-fraud" type="button">Run fraud analysis</button>
+                <button class="btn btn--ghost" data-action="open-analytics" type="button">Open analytics studio</button>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="integrations" aria-labelledby="integrations-heading" id="integrations">
+        <div class="section-heading">
+          <h2 id="integrations-heading">API-first architecture</h2>
+          <p class="text-muted">Reusable modules connect to the FastAPI backend, NPHIES connector, and analytics services.</p>
+        </div>
+        <div class="integration-grid">
+          <article class="card">
+            <h3>Operational APIs</h3>
+            <p class="text-secondary">Claims intake, appeals, and compliance letters wired through the <code>/api</code> namespace.</p>
+            <ul class="checklist">
+              <li>JWT-authenticated requests with auto-refresh tokens.</li>
+              <li>Timeout + retry helpers for flaky connections.</li>
+              <li>Structured responses mapped into dashboard stores.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>AI &amp; Analytics</h3>
+            <p class="text-secondary">Real-time fraud, predictive analytics, and physician risk scoring.</p>
+            <ul class="checklist">
+              <li>Parallel ML pipelines with explainable outputs.</li>
+              <li>Streaming trend data with SSE/WebSocket fallbacks.</li>
+              <li>Automatic localization for Arabic &amp; English.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Secure messaging</h3>
+            <p class="text-secondary">Bring every stakeholder into the loop while staying audit ready.</p>
+            <ul class="checklist">
+              <li>WhatsApp Business API templates with placeholders.</li>
+              <li>Role-based approvals and configurable SLAs.</li>
+              <li>HIPAA-compliant audit logging for every event.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="playground" aria-labelledby="playground-heading" id="playground">
+        <div class="section-heading">
+          <h2 id="playground-heading">Live API playground</h2>
+          <p class="text-muted">Plug your staging URL to preview real data. Securely runs in the browser.</p>
+        </div>
+        <div class="playground__grid">
+          <form class="playground__form" data-form="config">
+            <label for="api-url" class="form-label">API base URL</label>
+            <input id="api-url" name="api-url" type="url" class="form-input" value="https://api.brainsait.com" placeholder="https://api.example.com" required />
+            <p class="form-hint">We store this locally so future visits remember your environment.</p>
+            <button class="btn btn--primary" type="submit">Connect &amp; refresh</button>
+          </form>
+          <div class="playground__results" aria-live="polite" data-playground-results>
+            <p class="text-secondary">Awaiting connection…</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer" role="contentinfo">
+      <div class="site-footer__inner">
+        <p>© <span data-meta="year"></span> BrainSAIT. Built for Saudi healthcare providers.</p>
+        <div class="site-footer__links">
+          <a href="https://api.brainsait.com/docs" target="_blank" rel="noopener noreferrer">API docs</a>
+          <a href="https://github.com/Fadil369/brainsait-rcm" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="mailto:hello@brainsait.com">Contact</a>
+        </div>
+      </div>
+    </footer>
+
+    <script src="./demo.js" type="module"></script>
+  </body>
+</html>
