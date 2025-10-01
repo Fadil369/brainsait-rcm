@@ -78,15 +78,32 @@ npm run dev
 - **API:** http://localhost:8000
 - **API Docs:** http://localhost:8000/docs
 - **Web Dashboard:** http://localhost:3000
+- **Demo Shell:** http://localhost:3000/demo (NEW!)
 - **Health Check:** http://localhost:8000/health
 - **Metrics:** http://localhost:8000/metrics
+
+## 🎨 Demo Shell
+
+Experience the platform with our new **modern, accessible demo interface**:
+
+- ✅ **Live API Status** - Real-time health monitoring with status chips
+- ✅ **ARIA-Compliant** - Full keyboard navigation and screen reader support
+- ✅ **Bilingual** - English/Arabic with RTL layout
+- ✅ **Interactive Playground** - Test API endpoints directly
+- ✅ **Responsive Design** - Works on all devices
+- ✅ **Glassmorphism UI** - Modern, professional aesthetics
+
+**Access the demo:** `/demo` route (e.g., `http://localhost:3000/demo`)
 
 ## 📚 Documentation
 
 - **[API Documentation](API_DOCUMENTATION.md)** - Complete API reference
 - **[Setup Guide](SETUP_GUIDE.md)** - Detailed installation instructions
-- **[Deployment Guide](DEPLOY_GUIDE.md)** - Production deployment
+- **[Deployment Guide](DEPLOYMENT_GUIDE.md)** - Production deployment
 - **[Enhancement Summary](ENHANCEMENT_SUMMARY.md)** - Feature overview
+- **[Contributing Guidelines](CONTRIBUTING.md)** - Development standards (NEW!)
+- **[Security Policy](SECURITY.md)** - Vulnerability reporting (NEW!)
+- **[Changelog](CHANGELOG.md)** - Release history (NEW!)
 
 ## 🏗️ Architecture
 

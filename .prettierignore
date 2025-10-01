@@ -1,0 +1,69 @@
+# Prettier ignore patterns
+
+# Dependencies
+node_modules/
+.pnp.*
+.yarn/
+
+# Build outputs
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+
+# Testing
+coverage/
+.nyc_output/
+
+# Environment files
+.env*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Generated files
+*.generated.*
+__generated__/
+
+# Public assets (already formatted)
+public/demo/
+apps/web/public/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Documentation
+CHANGELOG.md
+LICENSE
