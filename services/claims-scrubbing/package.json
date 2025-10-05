@@ -1,0 +1,15 @@
+{
+  "name": "claims-scrubbing-service",
+  "version": "1.0.0",
+  "description": "FastAPI service for claim validation and denial risk scoring",
+  "main": "src/main.py",
+  "scripts": {
+    "dev": "uvicorn src.main:app --reload --host 0.0.0.0 --port 8000",
+    "start": "uvicorn src.main:app --host 0.0.0.0 --port 8000",
+    "test": "pytest tests/ -v --cov=src --cov-report=term-missing",
+    "lint": "ruff check src/",
+    "format": "ruff format src/"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

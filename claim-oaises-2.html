@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HNH-RCM Unified Claims Nexus Portal</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#1193d4",
+            "background-light": "#f6f7f8",
+            "background-dark": "#101c22",
+            "success-light": "#22c55e",
+            "success-dark": "#4ade80",
+            "warning-light": "#f59e0b",
+            "warning-dark": "#facc15",
+            "danger-light": "#ef4444",
+            "danger-dark": "#f87171",
+            "foreground-light": "#111827",
+            "foreground-dark": "#f9fafb",
+            "muted-light": "#6b7280",
+            "muted-dark": "#9ca3af",
+            "input-light": "#e5e7eb",
+            "input-dark": "#374151"
+          },
+          fontFamily: {
+            "display": ["Manrope", "sans-serif"]
+          },
+          borderRadius: {
+            "DEFAULT": "0.5rem",
+            "lg": "0.75rem",
+            "xl": "1rem",
+            "full": "9999px"
+          },
+        },
+      },
+    }
+  </script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<style>
+    .form-select {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 0.5rem center;
+        background-repeat: no-repeat;
+        background-size: 1.5em 1.5em;
+        padding-right: 2.5rem;
+        -webkit-print-color-adjust: exact;
+        color-adjust: exact;
+    }
+    .dark .form-select {
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-display bg-background-light dark:bg-background-dark">
+<div class="flex flex-col h-screen justify-between">
+<div class="flex-grow overflow-y-auto">
+<header class="sticky top-0 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm z-10">
+<div class="flex items-center p-4">
+<button class="text-foreground-light dark:text-foreground-dark">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="text-xl font-bold text-center flex-1 text-foreground-light dark:text-foreground-dark">New Claim</h1>
+<div class="w-8"></div>
+</div>
+</header>
+<main class="p-4 space-y-6">
+<section>
+<h2 class="text-lg font-bold text-foreground-light dark:text-foreground-dark mb-4">Patient Information</h2>
+<div class="space-y-4">
+<div>
+<label class="block text-sm font-medium text-muted-light dark:text-muted-dark mb-1" for="patient-id">Patient ID*</label>
+<input class="w-full h-12 px-4 rounded-lg bg-input-light dark:bg-input-dark text-foreground-light dark:text-foreground-dark border-transparent focus:border-primary focus:ring-primary" id="patient-id" placeholder="Enter Patient ID" type="text"/>
+</div>
+<div>
+<label class="block text-sm font-medium text-muted-light dark:text-muted-dark mb-1" for="patient-name">Patient Name*</label>
+<input class="w-full h-12 px-4 rounded-lg bg-input-light dark:bg-input-dark text-foreground-light dark:text-foreground-dark border-transparent focus:border-primary focus:ring-primary" id="patient-name" placeholder="Enter Patient Name" type="text"/>
+</div>
+<div>
+<label class="block text-sm font-medium text-muted-light dark:text-muted-dark mb-1" for="dob">Date of Birth*</label>
+<input class="w-full h-12 px-4 rounded-lg bg-input-light dark:bg-input-dark text-foreground-light dark:text-foreground-dark border-transparent focus:border-primary focus:ring-primary" id="dob" type="date"/>
+</div>
+</div>
+</section>
+<section>
+<h2 class="text-lg font-bold text-foreground-light dark:text-foreground-dark mb-4">Claim Details</h2>
+<div class="space-y-4">
+<div>
+<label class="block text-sm font-medium text-muted-light dark:text-muted-dark mb-1" for="claim-number">Claim Number*</label>
+<input class="w-full h-12 px-4 rounded-lg bg-input-light dark:bg-input-dark text-foreground-light dark:text-foreground-dark border-transparent focus:border-primary focus:ring-primary" id="claim-number" placeholder="Enter Claim Number" type="text"/>
+</div>
+<div>
+<label class="block text-sm font-medium text-muted-light dark:text-muted-dark mb-1" for="dos">Date of Service*</label>
+<input class="w-full h-12 px-4 rounded-lg bg-input-light dark:bg-input-dark text-foreground-light dark:text-foreground-dark border-transparent focus:border-primary focus:ring-primary" id="dos" type="date"/>
+</div>
+<div>
+<label class="block text-sm font-medium text-muted-light dark:text-muted-dark mb-1" for="payer">Payer*</label>
+<select class="form-select appearance-none w-full h-12 px-4 rounded-lg bg-input-light dark:bg-input-dark text-foreground-light dark:text-foreground-dark border-transparent focus:border-primary focus:ring-primary" id="payer">
+<option>Select a Payer</option>
+<option>Payer A</option>
+<option>Payer B</option>
+</select>
+</div>
+<div>
+<label class="block text-sm font-medium text-muted-light dark:text-muted-dark mb-1" for="claim-amount">Total Claim Amount*</label>
+<input class="w-full h-12 px-4 rounded-lg bg-input-light dark:bg-input-dark text-foreground-light dark:text-foreground-dark border-transparent focus:border-primary focus:ring-primary" id="claim-amount" placeholder="Enter Amount" type="number"/>
+</div>
+</div>
+</section>
+<section>
+<h2 class="text-lg font-bold text-foreground-light dark:text-foreground-dark mb-4">Diagnosis &amp; Procedures (NPHIES)</h2>
+<div class="space-y-4">
+<div>
+<label class="block text-sm font-medium text-muted-light dark:text-muted-dark mb-1" for="icd-code">ICD Code*</label>
+<input class="w-full h-12 px-4 rounded-lg bg-input-light dark:bg-input-dark text-foreground-light dark:text-foreground-dark border-transparent focus:border-primary focus:ring-primary" id="icd-code" placeholder="Search ICD Code (e.g., J45)" type="text"/>
+</div>
+<div>
+<label class="block text-sm font-medium text-muted-light dark:text-muted-dark mb-1" for="cpt-code">CPT Code*</label>
+<input class="w-full h-12 px-4 rounded-lg bg-input-light dark:bg-input-dark text-foreground-light dark:text-foreground-dark border-transparent focus:border-primary focus:ring-primary" id="cpt-code" placeholder="Search CPT Code (e.g., 99213)" type="text"/>
+</div>
+</div>
+</section>
+<section>
+<h2 class="text-lg font-bold text-foreground-light dark:text-foreground-dark mb-4">Denial Risk Assessment</h2>
+<div class="bg-primary/10 dark:bg-primary/20 p-4 rounded-lg">
+<div class="flex items-center justify-between">
+<p class="text-sm font-medium text-muted-light dark:text-muted-dark">Denial Risk Score</p>
+<div class="flex items-center space-x-2">
+<div class="w-4 h-4 rounded-full bg-success-light dark:bg-success-dark"></div>
+<span class="font-bold text-success-light dark:text-success-dark">Low</span>
+</div>
+</div>
+<div class="mt-3">
+<div class="w-full bg-input-light dark:bg-input-dark rounded-full h-2.5">
+<div class="bg-success-light dark:bg-success-dark h-2.5 rounded-full" style="width: 15%"></div>
+</div>
+</div>
+</div>
+</section>
+</main>
+</div>
+<footer class="p-4 bg-background-light dark:bg-background-dark border-t border-input-light dark:border-input-dark">
+<button class="w-full h-12 px-5 rounded-lg bg-primary text-white font-bold tracking-wide flex items-center justify-center">
+<span>Submit to Payer via NPHIES</span>
+</button>
+</footer>
+</div>
+
+</body></html>

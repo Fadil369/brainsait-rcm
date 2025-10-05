@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+screenshots/
+discovery-output/
+*.log
+.DS_Store

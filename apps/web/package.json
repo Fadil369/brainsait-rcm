@@ -15,7 +15,9 @@
     "react-dom": "^18.2.0",
     "framer-motion": "^11.0.0",
     "date-fns": "^3.3.0",
-    "axios": "^1.6.5"
+    "axios": "^1.6.5",
+    "@brainsait/shared-models": "*",
+    "zod": "^3.22.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

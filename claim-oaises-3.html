@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HNH-RCM Unified Claims Nexus Portal</title>
+<link crossorigin="" href="https://fonts.gstatic.com/" rel="preconnect"/>
+<link as="style" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Manrope:wght@400;500;700;800&amp;family=Noto+Sans:wght@400;500;700;900" onload="this.rel='stylesheet'" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1193d4",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101c22",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-gray-800 dark:text-gray-200">
+<div class="flex flex-col h-screen justify-between">
+<div class="flex-grow overflow-y-auto">
+<header class="sticky top-0 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm z-10">
+<div class="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
+<button class="p-2 -ml-2">
+<span class="material-symbols-outlined text-gray-700 dark:text-gray-300">arrow_back</span>
+</button>
+<h1 class="text-lg font-bold text-center flex-1 pr-10 text-gray-900 dark:text-white">Unaizah Branch</h1>
+</div>
+<div class="px-4 pt-4 pb-2">
+<h2 class="text-2xl font-extrabold text-gray-900 dark:text-white">Assigned Denied Claims</h2>
+</div>
+</header>
+<main class="p-4 space-y-4">
+<div class="bg-white dark:bg-gray-800/50 rounded-xl shadow-sm p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-200">
+<div class="flex items-start justify-between gap-4">
+<div class="flex-1 space-y-2">
+<p class="text-sm text-gray-500 dark:text-gray-400">Claim ID: 789012</p>
+<p class="font-bold text-gray-900 dark:text-white">Patient: Fatima Al-Malki</p>
+<p class="text-sm text-gray-600 dark:text-gray-300">Denial: <span class="font-medium">Missing Authorization</span></p>
+</div>
+<div class="text-center shrink-0">
+<div class="bg-red-100 dark:bg-red-900/50 rounded-full w-20 h-20 flex flex-col items-center justify-center border-4 border-red-200 dark:border-red-800">
+<p class="text-red-700 dark:text-red-300 text-3xl font-bold">48</p>
+<p class="text-red-600 dark:text-red-400 text-xs font-medium -mt-1">Hours</p>
+</div>
+<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Turnaround</p>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-gray-800/50 rounded-xl shadow-sm p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-200">
+<div class="flex items-start justify-between gap-4">
+<div class="flex-1 space-y-2">
+<p class="text-sm text-gray-500 dark:text-gray-400">Claim ID: 123456</p>
+<p class="font-bold text-gray-900 dark:text-white">Patient: Omar Al-Harbi</p>
+<p class="text-sm text-gray-600 dark:text-gray-300">Denial: <span class="font-medium">Incorrect Diagnosis Code</span></p>
+</div>
+<div class="text-center shrink-0">
+<div class="bg-orange-100 dark:bg-orange-900/50 rounded-full w-20 h-20 flex flex-col items-center justify-center border-4 border-orange-200 dark:border-orange-800">
+<p class="text-orange-700 dark:text-orange-300 text-3xl font-bold">23</p>
+<p class="text-orange-600 dark:text-orange-400 text-xs font-medium -mt-1">Hours</p>
+</div>
+<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Turnaround</p>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-gray-800/50 rounded-xl shadow-sm p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-200">
+<div class="flex items-start justify-between gap-4">
+<div class="flex-1 space-y-2">
+<p class="text-sm text-gray-500 dark:text-gray-400">Claim ID: 456789</p>
+<p class="font-bold text-gray-900 dark:text-white">Patient: Layla Al-Faisal</p>
+<p class="text-sm text-gray-600 dark:text-gray-300">Denial: <span class="font-medium">Expired Policy</span></p>
+</div>
+<div class="text-center shrink-0">
+<div class="bg-green-100 dark:bg-green-900/50 rounded-full w-20 h-20 flex flex-col items-center justify-center border-4 border-green-200 dark:border-green-800">
+<p class="text-green-700 dark:text-green-300 text-3xl font-bold">4</p>
+<p class="text-green-600 dark:text-green-400 text-xs font-medium -mt-1">Hours</p>
+</div>
+<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Turnaround</p>
+</div>
+</div>
+</div>
+</main>
+</div>
+<nav class="bg-background-light dark:bg-background-dark border-t border-gray-200 dark:border-gray-700/50">
+<div class="flex justify-around items-center px-2 pt-2 pb-4">
+<a class="flex flex-col items-center justify-center gap-1 text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-xs font-medium">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center gap-1 text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">folder_copy</span>
+<span class="text-xs font-medium">Claims</span>
+</a>
+<a class="flex flex-col items-center justify-center gap-1 text-primary dark:text-primary transition-colors" href="#">
+<div class="bg-primary/10 dark:bg-primary/20 p-3 rounded-full">
+<span class="material-symbols-outlined">cancel</span>
+</div>
+<span class="text-xs font-bold">Denials</span>
+</a>
+<a class="flex flex-col items-center justify-center gap-1 text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">apartment</span>
+<span class="text-xs font-medium">Branches</span>
+</a>
+<a class="flex flex-col items-center justify-center gap-1 text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="text-xs font-medium">Analytics</span>
+</a>
+</div>
+</nav>
+</div>
+
+</body></html>

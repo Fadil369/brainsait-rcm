@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  oasis-integration:
+    build: .
+    container_name: oasis-integration
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      # OASIS Configuration
+      - OASIS_URL=${OASIS_URL}
+      - OASIS_USERNAME=${OASIS_USERNAME}
+      - OASIS_PASSWORD=${OASIS_PASSWORD}
+
+      # Sync Configuration
+      - SYNC_ENABLED=${SYNC_ENABLED:-true}
+      - SYNC_INTERVAL=${SYNC_INTERVAL:-60}
+      - SYNC_PENDING=${SYNC_PENDING:-false}
+      - SYNC_APPROVED=${SYNC_APPROVED:-false}
+      - LOOKBACK_DAYS=${LOOKBACK_DAYS:-30}
+
+      # Notifications
+      - NOTIFY_ON_REJECTIONS=${NOTIFY_ON_REJECTIONS:-true}
+      - NOTIFICATION_EMAIL=${NOTIFICATION_EMAIL}
+
+      # RCM Integration
+      - RCM_API_URL=${RCM_API_URL}
+      - RCM_API_KEY=${RCM_API_KEY}
+
+      # Server Configuration
+      - PORT=3002
+      - HOST=0.0.0.0
+      - NODE_ENV=${NODE_ENV:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+
+      # Audit Logging
+      - AUDIT_LOG_PATH=/app/logs/audit
+
+    volumes:
+      # Persist audit logs
+      - ./logs:/app/logs
+      # Persist screenshots for debugging
+      - ./screenshots:/app/screenshots
+      # Persist discovery output
+      - ./discovery-output:/app/discovery-output
+
+    networks:
+      - brainsait-network
+
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+networks:
+  brainsait-network:
+    external: true

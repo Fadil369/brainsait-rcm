@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: brainsait-production
+  labels:
+    environment: production
+    compliance: hipaa-nphies
+    data-locality: ksa
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: brainsait-staging
+  labels:
+    environment: staging
+    compliance: hipaa-nphies
+    data-locality: ksa
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: brainsait-dev
+  labels:
+    environment: dev
+    compliance: hipaa-nphies
+    data-locality: ksa
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: brainsait-system
+  labels:
+    environment: shared
+    purpose: platform-services
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: brainsait-data
+  labels:
+    environment: shared
+    purpose: data-layer
+    compliance: hipaa-nphies
