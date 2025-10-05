@@ -120,6 +120,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Security middleware (rate limiting, input validation)
+try:
+    from middleware import SecurityMiddleware
+    app.add_middleware(
+        SecurityMiddleware,
+        rate_limit=int(os.getenv("RATE_LIMIT", "100")),
+        rate_window=int(os.getenv("RATE_WINDOW", "60"))
+    )
+    logger.info("✅ Security middleware enabled")
+except Exception as sec_exc:
+    logger.warning("Failed to load security middleware: %s", sec_exc)
+
 # Add monitoring middleware
 try:
     app.middleware("http")(metrics_middleware)
