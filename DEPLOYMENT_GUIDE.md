@@ -71,6 +71,10 @@
    ALLOW_CREDENTIALS = true
    ENCRYPTION_KEY = [Click "Generate" for random secure key]
    ENVIRONMENT = production
+   
+   # Security & Rate Limiting (New)
+   RATE_LIMIT = 100          # Max requests per minute per IP
+   RATE_WINDOW = 60          # Rate limit window in seconds
    ```
 
 5. **Deploy:**
