@@ -23,6 +23,13 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 security = HTTPBearer()
 
+# Configure logging format
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
 # Initialize monitoring
 try:
     from monitoring import init_monitoring, metrics_middleware, get_metrics_endpoint
@@ -137,6 +144,13 @@ try:
     app.middleware("http")(metrics_middleware)
 except NameError:
     pass  # Monitoring not available
+
+# Register standardized error handlers
+try:
+    from utils.error_handler import register_error_handlers
+    register_error_handlers(app)
+except Exception as err_exc:
+    logger.warning("Failed to register error handlers: %s", err_exc)
 
 # Database helper
 def get_database():
