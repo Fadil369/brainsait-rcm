@@ -1,0 +1,42 @@
+name = "brainsait-teams-bot"
+main = "worker.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "87a79e73521fc85dab488b2c700554e3"
+
+# Custom domain for bot (will be configured via DNS/dashboard)
+# routes = [
+#   { pattern = "teams-bot.brainsait.com", custom_domain = true }
+# ]
+
+# Environment variables (non-sensitive)
+[vars]
+BOT_ENDPOINT = "https://teams-bot.brainsait.com"
+NODE_ENV = "production"
+
+# Secrets (set with: wrangler secret put SECRET_NAME)
+# BOT_ID - Azure AD App ID for the bot
+# BOT_PASSWORD - Azure AD Client Secret
+# MONGODB_URI - MongoDB Atlas connection string
+
+# KV namespace for bot state (using existing namespace)
+[[kv_namespaces]]
+binding = "BOT_STATE"
+id = "394268b352c24c28868a33aad89f991c"  # SESSIONS_KV
+
+# KV for caching
+[[kv_namespaces]]
+binding = "CACHE"
+id = "4a282bbcdfd4480e9437762602605d7d"  # CACHE
+
+# D1 database for bot data (using existing brainsait database)
+[[d1_databases]]
+binding = "DB"
+database_name = "brainsait"
+database_id = "68230ad3-2a43-41dc-9716-f5aa6fed137c"
+
+# D1 for audit logging
+[[d1_databases]]
+binding = "AUDIT_DB"
+database_name = "brainsait-audit-logs"
+database_id = "07fdaaaa-31bc-4565-852d-db904dd2ba01"
