@@ -191,6 +191,33 @@ class APIClient {
     return response.data;
   }
 
+  // ============ Teams Integration Endpoints ============
+
+  async sendTeamsComplianceLetter(data: any) {
+    const response = await this.client.post('/api/teams/notifications/compliance-letter', data);
+    return response.data;
+  }
+
+  async sendTeamsRejectionSummary(data: any) {
+    const response = await this.client.post('/api/teams/notifications/rejection-summary', data);
+    return response.data;
+  }
+
+  async broadcastTeamsMessage(message: string) {
+    const response = await this.client.post('/api/teams/notifications/broadcast', { message });
+    return response.data;
+  }
+
+  async getTeamsInstallations() {
+    const response = await this.client.get('/api/teams/installations');
+    return response.data;
+  }
+
+  async getTeamsHealth() {
+    const response = await this.client.get('/api/teams/health');
+    return response.data;
+  }
+
   // ============ Notifications Endpoints ============
 
   async sendWhatsAppNotification(to: string, message: string, template?: string) {

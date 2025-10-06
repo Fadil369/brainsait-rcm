@@ -1,0 +1,155 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.4",
+  "body": [
+    {
+      "type": "Container",
+      "style": "emphasis",
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "📊 Monthly Rejections Summary | ملخص الرفض الشهري",
+          "weight": "bolder",
+          "size": "large",
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": "${period}",
+          "isSubtle": true,
+          "wrap": true
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "items": [
+        {
+          "type": "ColumnSet",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Total Claims | إجمالي المطالبات",
+                  "isSubtle": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "${totalClaims}",
+                  "size": "extraLarge",
+                  "weight": "bolder"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Rejection Rate | معدل الرفض",
+                  "isSubtle": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "${rejectionRate}",
+                  "size": "extraLarge",
+                  "weight": "bolder",
+                  "color": "${rejectionRateColor}"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "items": [
+        {
+          "type": "ColumnSet",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Total Amount | المبلغ الإجمالي",
+                  "isSubtle": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "${totalAmount}",
+                  "size": "large",
+                  "weight": "bolder"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Recovery Rate | معدل الاسترداد",
+                  "isSubtle": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "${recoveryRate}",
+                  "size": "large",
+                  "weight": "bolder",
+                  "color": "good"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "Top Rejection Reasons | أهم أسباب الرفض",
+          "weight": "bolder",
+          "spacing": "medium"
+        },
+        {
+          "type": "FactSet",
+          "facts": "${topReasons}"
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "style": "warning",
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "⚠️ ${pendingLetters} compliance letters pending | رسائل الامتثال معلقة",
+          "wrap": true,
+          "weight": "bolder"
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.OpenUrl",
+      "title": "Open Dashboard | فتح لوحة التحكم",
+      "url": "${dashboardUrl}"
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "View Report | عرض التقرير",
+      "url": "${reportUrl}"
+    }
+  ]
+}
