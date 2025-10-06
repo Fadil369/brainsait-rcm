@@ -209,7 +209,7 @@ export interface OASISToRCMSyncResult {
   errors: Array<{
     claimNumber?: string;
     error: string;
-    details?: any;
+    details?: Record<string, unknown>;
   }>;
 
   status: 'SUCCESS' | 'PARTIAL' | 'FAILED';

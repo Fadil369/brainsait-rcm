@@ -3,10 +3,11 @@
  * Extracts claim and rejection data from OASIS+ pages
  */
 
-import { Page } from 'playwright';
-import { OASISClaim, OASISRejection, OASISSearchCriteria, OASISSearchResult, OASISDataError } from '../types/oasis.types';
-import { OASISClient } from '../client/OASISClient';
 import pino from 'pino';
+import { Page } from 'playwright';
+
+import { OASISClient } from '../client/OASISClient';
+import { OASISClaim, OASISRejection, OASISSearchCriteria, OASISSearchResult, OASISDataError } from '../types/oasis.types';
 
 const logger = pino({ name: 'ClaimExtractor' });
 
@@ -223,7 +224,7 @@ export class ClaimExtractor {
     return claims;
   }
 
-  private async parseClaimRow(cells: any[]): Promise<OASISClaim | null> {
+  private async parseClaimRow(cells: Array<{ textContent: () => Promise<string | null> }>): Promise<OASISClaim | null> {
     try {
       // This is a template - actual implementation depends on OASIS table structure
       // You'll need to adjust column indices based on actual data
@@ -315,8 +316,8 @@ export class ClaimExtractor {
         rejectionId: `${claim.claimNumber}-${Date.now()}`,
         rejectionDate: rejectionDate || new Date().toISOString(),
         rejectionType: 'FULL',
-        rejectionCode: rejectionCode,
-        rejectionReason: rejectionReason,
+        rejectionCode,
+        rejectionReason,
         category: this.categorizeRejection(rejectionCode),
         rejectedAmount: {
           net: claim.netAmount,

@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Modal } from './Modal';
+
 import { apiClient } from '@/lib/api';
-import { motion } from 'framer-motion';
+
+import { Modal } from './Modal';
 
 interface CreateRejectionModalProps {
   isOpen: boolean;
@@ -81,7 +82,8 @@ export function CreateRejectionModal({ isOpen, onClose, onSuccess, locale }: Cre
         rejectionReason: '',
         nphiesReference: ''
       });
-    } catch (err: any) {
+    } catch (error) {
+      console.error('Rejection creation failed:', error);
       setError(locale === 'ar' ? 'فشل إنشاء المرفوض' : 'Failed to create rejection');
     } finally {
       setLoading(false);
@@ -130,7 +132,7 @@ export function CreateRejectionModal({ isOpen, onClose, onSuccess, locale }: Cre
               <select
                 required
                 value={formData.receptionMode}
-                onChange={(e) => setFormData({ ...formData, receptionMode: e.target.value as any })}
+                onChange={(e) => setFormData({ ...formData, receptionMode: e.target.value as typeof formData.receptionMode })}
                 className="w-full px-4 py-2 bg-black/40 border border-gray-700 rounded-lg text-white focus:border-brainsait-cyan focus:outline-none"
               >
                 <option value="NPHIES">NPHIES</option>

@@ -11,6 +11,20 @@ const api = axios.create({
   },
 });
 
+interface RejectionData {
+  claimId?: string;
+  tpaName?: string;
+  insuranceCompany?: string;
+  branch?: string;
+  receptionMode?: string;
+  billedAmount?: { net?: number; vat?: number; total?: number };
+  rejectedAmount?: { net?: number; vat?: number; total?: number };
+  rejectionReceivedDate?: string;
+  rejectionReason?: string;
+  nphiesReference?: string;
+  [key: string]: unknown;
+}
+
 export const apiService = {
   async getDashboardStats() {
     const response = await api.get('/api/dashboard/stats');
@@ -27,7 +41,7 @@ export const apiService = {
     return response.data;
   },
 
-  async createRejection(data: any) {
+  async createRejection(data: RejectionData) {
     const response = await api.post('/api/rejections', data);
     return response.data;
   },

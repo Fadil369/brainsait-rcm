@@ -6,13 +6,16 @@
  */
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useClaimsValidation } from '@/hooks/useClaimsValidation';
 import { ClaimValidationRequest } from '@brainsait/shared-models';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+
+import { DocumentUpload } from '@/components/claims/DocumentUpload';
 import { RiskScoreCard } from '@/components/claims/RiskScoreCard';
 import { ValidationIssuesList } from '@/components/claims/ValidationIssuesList';
-import { DocumentUpload } from '@/components/claims/DocumentUpload';
+import { useClaimsValidation } from '@/hooks/useClaimsValidation';
+
+
 
 export default function NewClaimPage() {
   const router = useRouter();
@@ -29,7 +32,13 @@ export default function NewClaimPage() {
     documentation: {}
   });
   
-  const [validationResult, setValidationResult] = useState<any>(null);
+  const [validationResult, setValidationResult] = useState<{
+    denialRiskScore?: number;
+    riskLevel?: string;
+    compliance?: { nphiesCompliant: boolean; payerRulesCompliant: boolean } | boolean;
+    issues?: Array<{ message: string; severity: string }>;
+    status?: string;
+  } | null>(null);
   const [currentIcdCode, setCurrentIcdCode] = useState('');
   const [currentCptCode, setCurrentCptCode] = useState('');
   
@@ -78,6 +87,7 @@ export default function NewClaimPage() {
   
   const handleSubmit = async () => {
     // TODO: Submit claim to backend
+    // eslint-disable-next-line no-console
     console.log('Submitting claim:', formData);
     router.push('/claims');
   };
@@ -340,6 +350,7 @@ export default function NewClaimPage() {
             
             <DocumentUpload
               onUpload={(files) => {
+                // eslint-disable-next-line no-console
                 console.log('Files uploaded:', files);
                 // TODO: Handle file upload
               }}
@@ -350,10 +361,14 @@ export default function NewClaimPage() {
         {/* Validation Result */}
         {validationResult && (
           <>
-            <RiskScoreCard 
-              score={validationResult.denialRiskScore}
-              riskLevel={validationResult.riskLevel}
-              compliance={validationResult.compliance}
+            <RiskScoreCard
+              score={validationResult.denialRiskScore ?? 0}
+              riskLevel={validationResult.riskLevel ?? 'unknown'}
+              compliance={
+                typeof validationResult.compliance === 'object'
+                  ? validationResult.compliance
+                  : { nphiesCompliant: false, payerRulesCompliant: false }
+              }
             />
             
             {validationResult.issues && validationResult.issues.length > 0 && (

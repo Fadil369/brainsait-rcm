@@ -3,10 +3,11 @@
  * Transforms OASIS+ data format to RCM RejectionRecord format
  */
 
+import pino from 'pino';
+
+import { BilingualText } from '../types/common.types';
 import { OASISClaim, OASISRejection } from '../types/oasis.types';
 import { RCMRejectionRecord } from '../types/rcm.types';
-import { BilingualText } from '../types/common.types';
-import pino from 'pino';
 
 const logger = pino({ name: 'OASISToRCMTransformer' });
 
@@ -173,10 +174,10 @@ export class OASISToRCMTransformer {
   private createBilingualPayerName(payerName: string): BilingualText {
     // Map common payer names to bilingual
     const payerMap: Record<string, BilingualText> = {
-      'BUPA': { ar: 'بوبا', en: 'BUPA' },
-      'Tawuniya': { ar: 'التعاونية', en: 'Tawuniya' },
-      'MedGulf': { ar: 'ميدغلف', en: 'MedGulf' },
-      'AlRajhi': { ar: 'الراجحي تكافل', en: 'AlRajhi Takaful' },
+      BUPA: { ar: 'بوبا', en: 'BUPA' },
+      Tawuniya: { ar: 'التعاونية', en: 'Tawuniya' },
+      MedGulf: { ar: 'ميدغلف', en: 'MedGulf' },
+      AlRajhi: { ar: 'الراجحي تكافل', en: 'AlRajhi Takaful' },
     };
 
     return payerMap[payerName] || {
@@ -188,27 +189,27 @@ export class OASISToRCMTransformer {
   private createBilingualRejectionReason(code: string, reason: string): BilingualText {
     // Map common rejection codes to bilingual reasons
     const reasonMap: Record<string, BilingualText> = {
-      'M01': {
+      M01: {
         ar: 'خدمة غير مغطاة',
         en: 'Service not covered',
       },
-      'M02': {
+      M02: {
         ar: 'غير ضروري طبياً',
         en: 'Not medically necessary',
       },
-      'T01': {
+      T01: {
         ar: 'وثائق ناقصة',
         en: 'Incomplete documentation',
       },
-      'A01': {
+      A01: {
         ar: 'خطأ في الترميز',
         en: 'Coding error',
       },
-      'B01': {
+      B01: {
         ar: 'خطأ في الفوترة',
         en: 'Billing error',
       },
-      'AUTH01': {
+      AUTH01: {
         ar: 'تصريح مسبق مطلوب',
         en: 'Prior authorization required',
       },
@@ -259,10 +260,10 @@ export class OASISToRCMTransformer {
   ): 'SUBMITTED' | 'UNDER_REVIEW' | 'ACCEPTED' | 'REJECTED' | undefined {
     if (!status) return undefined;
 
-    const map: Record<string, any> = {
-      'UNDER_APPEAL': 'SUBMITTED',
-      'APPEAL_ACCEPTED': 'ACCEPTED',
-      'APPEAL_REJECTED': 'REJECTED',
+    const map: Record<string, 'SUBMITTED' | 'UNDER_REVIEW' | 'ACCEPTED' | 'REJECTED'> = {
+      UNDER_APPEAL: 'SUBMITTED',
+      APPEAL_ACCEPTED: 'ACCEPTED',
+      APPEAL_REJECTED: 'REJECTED',
     };
 
     return map[status];

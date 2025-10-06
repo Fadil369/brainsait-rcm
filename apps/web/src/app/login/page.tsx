@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+
 import { useAuth } from '@/lib/hooks';
 
 /**
@@ -26,7 +27,7 @@ export default function LoginPage() {
     try {
       await login(email, password);
       router.push('/');
-    } catch (err: any) {
+    } catch {
       setError(
         locale === 'ar'
           ? 'فشل تسجيل الدخول. تحقق من بيانات الاعتماد.'

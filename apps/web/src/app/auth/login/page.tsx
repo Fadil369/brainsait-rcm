@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+
 import { authAPI } from '@/lib/auth/api';
 
 export default function LoginPage() {
@@ -22,8 +23,8 @@ export default function LoginPage() {
       localStorage.setItem('access_token', tokens.access_token);
       localStorage.setItem('refresh_token', tokens.refresh_token);
       router.push('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Login failed');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Login failed');
     } finally {
       setIsLoading(false);
     }
@@ -33,8 +34,8 @@ export default function LoginPage() {
     try {
       const authUrl = await authAPI.getOAuthURL(provider);
       window.location.href = authUrl;
-    } catch (err: any) {
-      setError(err.message || 'OAuth initialization failed');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'OAuth initialization failed');
     }
   };
 

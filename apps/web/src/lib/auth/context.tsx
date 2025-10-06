@@ -1,7 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+
 import { authAPI, User, TokenResponse } from './api';
 
 interface AuthContextType {
@@ -25,7 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('refresh_token', tokens.refresh_token);
   };
 
-  const refreshAuth = async () => {
+  const refreshAuth = useCallback(async () => {
     try {
       const token = localStorage.getItem('access_token');
       if (!token) {
@@ -45,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           saveTokens(tokens);
           const userData = await authAPI.getCurrentUser();
           setUser(userData);
-        } catch (refreshError) {
+        } catch {
           // Refresh failed, clear tokens
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
@@ -57,11 +58,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    refreshAuth();
-  }, []);
+    void refreshAuth();
+  }, [refreshAuth]);
 
   const login = async (identifier: string, password: string) => {
     try {

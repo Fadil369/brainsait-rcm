@@ -3,10 +3,11 @@
  * Handles authentication and API communication with OASIS+ system
  */
 
+import pino from 'pino';
 import { chromium, Browser, Page, BrowserContext } from 'playwright';
+
 import { OASISCredentials, OASISSession, OASISAuthenticationError, OASISNetworkError } from '../types/oasis.types';
 import { AuditLogger } from '../utils/auditLogger';
-import pino from 'pino';
 
 const logger = pino({ name: 'OASISClient' });
 
@@ -273,7 +274,7 @@ export class OASISClient {
         }
         return;
       }
-    } catch (error) {
+    } catch {
       // SSL warning handling is best-effort
       logger.debug('SSL warning check skipped');
     }

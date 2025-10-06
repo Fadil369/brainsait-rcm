@@ -1,9 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useId, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { useCallback, useEffect, useId, useRef } from 'react';
 import type { ReactNode } from 'react';
+
+import { cn } from '@/lib/utils';
+
 
 /**
  * Reusable Modal Component with Glass Morphism
@@ -112,8 +114,8 @@ export function Modal({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       document.body.style.removeProperty('overflow');
-      if (dialogRef.current?.open) {
-        dialogRef.current?.close();
+      if (dialog?.open) {
+        dialog.close();
       }
       if (previouslyFocusedElement.current instanceof HTMLElement) {
         previouslyFocusedElement.current.focus({ preventScroll: true });

@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Modal } from './Modal';
+
 import { apiClient } from '@/lib/api';
+
+import { Modal } from './Modal';
 
 interface CreateAppealModalProps {
   isOpen: boolean;
@@ -157,7 +159,7 @@ export function CreateAppealModal({ isOpen, onClose, onSuccess, locale }: Readon
               id="submissionMethod"
               required
               value={formData.submissionMethod}
-              onChange={(e) => setFormData({ ...formData, submissionMethod: e.target.value as any })}
+              onChange={(e) => setFormData({ ...formData, submissionMethod: e.target.value as typeof formData.submissionMethod })}
               className="w-full px-4 py-2 bg-black/40 border border-gray-700 rounded-lg text-white focus:border-brainsait-cyan focus:outline-none transition"
               aria-label={locale === 'ar' ? 'طريقة تقديم الاستئناف' : 'Appeal submission method'}
             >

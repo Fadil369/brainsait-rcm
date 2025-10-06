@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Modal } from './Modal';
-import { apiClient } from '@/lib/api';
 import { motion } from 'framer-motion';
+import { useState, useEffect, useCallback } from 'react';
+
+import { apiClient } from '@/lib/api';
+
+import { Modal } from './Modal';
 
 interface AuditTrailModalProps {
   isOpen: boolean;
@@ -11,20 +13,32 @@ interface AuditTrailModalProps {
   locale: 'ar' | 'en';
 }
 
+interface AuditLog {
+  id?: string;
+  timestamp?: string;
+  action?: string;
+  user?: string;
+  details?: string;
+  [key: string]: unknown;
+}
+
+interface SuspiciousActivity {
+  id?: string;
+  type?: string;
+  severity?: string;
+  description?: string;
+  timestamp?: string;
+  [key: string]: unknown;
+}
+
 export function AuditTrailModal({ isOpen, onClose, locale }: AuditTrailModalProps) {
   const [loading, setLoading] = useState(false);
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
-  const [suspiciousActivity, setSuspiciousActivity] = useState<any[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [suspiciousActivity, setSuspiciousActivity] = useState<SuspiciousActivity[]>([]);
   const [activeTab, setActiveTab] = useState<'logs' | 'suspicious'>('logs');
   const [userId, setUserId] = useState('current');
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchAuditData();
-    }
-  }, [isOpen, activeTab]);
-
-  const fetchAuditData = async () => {
+  const fetchAuditData = useCallback(async () => {
     setLoading(true);
     try {
       if (activeTab === 'logs') {
@@ -39,7 +53,13 @@ export function AuditTrailModal({ isOpen, onClose, locale }: AuditTrailModalProp
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab, userId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      void fetchAuditData();
+    }
+  }, [isOpen, fetchAuditData]);
 
   const getEventTypeBadge = (type: string) => {
     const badges: Record<string, { color: string; label: { ar: string; en: string } }> = {

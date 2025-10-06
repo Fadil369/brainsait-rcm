@@ -3,9 +3,11 @@
  * Logs all data access and system actions for compliance
  */
 
-import pino from 'pino';
 import * as fs from 'fs';
 import * as path from 'path';
+
+import pino from 'pino';
+
 import { AuditLogEntry } from '../types/common.types';
 
 const LOG_DIR = process.env.AUDIT_LOG_PATH || './logs/audit';
@@ -51,7 +53,7 @@ export class AuditLogger {
     resourceType: string,
     resourceId: string,
     action: 'READ' | 'WRITE' | 'UPDATE' | 'DELETE',
-    details?: any
+    details?: Record<string, unknown>
   ): Promise<void> {
     await this.log({
       timestamp: new Date().toISOString(),
@@ -70,7 +72,7 @@ export class AuditLogger {
     userId: string,
     action: 'LOGIN' | 'LOGOUT' | 'LOGIN_FAILED',
     ipAddress?: string,
-    details?: any
+    details?: Record<string, unknown>
   ): Promise<void> {
     await this.log({
       timestamp: new Date().toISOString(),
@@ -89,7 +91,7 @@ export class AuditLogger {
   async logError(
     userId: string,
     error: Error,
-    context?: any
+    context?: Record<string, unknown>
   ): Promise<void> {
     await this.log({
       timestamp: new Date().toISOString(),

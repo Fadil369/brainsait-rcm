@@ -16,7 +16,7 @@ export interface AuditLogEntry {
   userId: string;
   resourceType: string;
   resourceId: string;
-  details?: any;
+  details?: Record<string, unknown>;
   ipAddress?: string;
 }
 

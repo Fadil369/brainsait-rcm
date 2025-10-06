@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Modal } from './Modal';
+
 import { apiClient } from '@/lib/api';
+
+import { Modal } from './Modal';
 
 interface ComplianceLetterModalProps {
   isOpen: boolean;
@@ -63,7 +65,8 @@ export function ComplianceLetterModal({ isOpen, onClose, onSuccess, locale }: Co
         recipientEmail: '',
         additionalNotes: ''
       });
-    } catch (err: any) {
+    } catch (error) {
+      console.error('Compliance letter generation failed:', error);
       setError(locale === 'ar' ? 'فشل إنشاء الخطاب' : 'Failed to generate letter');
     } finally {
       setLoading(false);
@@ -106,7 +109,7 @@ export function ComplianceLetterModal({ isOpen, onClose, onSuccess, locale }: Co
             <select
               required
               value={formData.letterType}
-              onChange={(e) => setFormData({ ...formData, letterType: e.target.value as any })}
+              onChange={(e) => setFormData({ ...formData, letterType: e.target.value as typeof formData.letterType })}
               className="w-full px-4 py-2 bg-black/40 border border-gray-700 rounded-lg text-white focus:border-brainsait-cyan focus:outline-none"
             >
               {Object.entries(letterTypes).map(([key, value]) => (

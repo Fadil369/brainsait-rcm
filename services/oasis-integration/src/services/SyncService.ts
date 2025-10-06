@@ -3,13 +3,14 @@
  * Scheduled synchronization of rejection data from OASIS to RCM
  */
 
+import pino from 'pino';
+
 import { OASISClient } from '../client/OASISClient';
 import { ClaimExtractor } from '../extractors/ClaimExtractor';
 import { OASISToRCMTransformer } from '../transformers/OASISToRCMTransformer';
-import { AuditLogger } from '../utils/auditLogger';
-import { OASISCredentials, OASISSyncConfig, OASISIntegrationStatus } from '../types/oasis.types';
+import { OASISCredentials, OASISSyncConfig, OASISIntegrationStatus, OASISClaim } from '../types/oasis.types';
 import { OASISToRCMSyncResult, RCMRejectionRecord } from '../types/rcm.types';
-import pino from 'pino';
+import { AuditLogger } from '../utils/auditLogger';
 
 const logger = pino({ name: 'SyncService' });
 
@@ -338,7 +339,7 @@ export class SyncService {
     return statuses.length > 0 ? statuses : ['REJECTED'];
   }
 
-  private async fetchClaimForRejection(claimNumber: string): Promise<any> {
+  private async fetchClaimForRejection(claimNumber: string): Promise<OASISClaim | null> {
     try {
       // Search for the specific claim
       const searchResult = await this.extractor.searchClaims({

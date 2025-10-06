@@ -5,6 +5,22 @@
 
 import axios, { AxiosInstance, AxiosError } from 'axios';
 
+import type {
+  AppealRecord,
+  AppealRecordInput,
+  AuthUser,
+  DashboardAnalytics,
+  DashboardComplianceLetter,
+  DashboardRejectionRecord,
+  FraudDetectionInput,
+  FraudDetectionResult,
+  HealthStatus,
+  LoginResponse,
+  PredictiveAnalyticsResult,
+  PredictiveHistoricalPoint,
+  TrendsResponse,
+} from '@/types/api';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const API_TIMEOUT = Number(process.env.NEXT_PUBLIC_API_TIMEOUT) || 10000;
 
@@ -79,15 +95,15 @@ class APIClient {
 
   // ============ Authentication Endpoints ============
 
-  async login(email: string, password: string) {
+  async login(email: string, password: string): Promise<LoginResponse> {
     const response = await this.client.post('/api/auth/login', { email, password });
     if (response.data.access_token) {
       this.setAuthToken(response.data.access_token);
     }
-    return response.data;
+    return response.data as LoginResponse;
   }
 
-  async logout() {
+  async logout(): Promise<void> {
     try {
       await this.client.post('/api/auth/logout');
     } finally {
@@ -95,59 +111,61 @@ class APIClient {
     }
   }
 
-  async getCurrentUser() {
+  async getCurrentUser(): Promise<AuthUser> {
     const response = await this.client.get('/api/auth/me');
-    return response.data;
+    return response.data as AuthUser;
   }
 
   // ============ Rejections Endpoints ============
 
-  async getCurrentMonthRejections() {
+  async getCurrentMonthRejections(): Promise<DashboardRejectionRecord[]> {
     const response = await this.client.get('/api/rejections/current-month');
-    return response.data;
+    return response.data as DashboardRejectionRecord[];
   }
 
-  async createRejection(rejectionData: any) {
+  async createRejection(rejectionData: Record<string, unknown>) {
     const response = await this.client.post('/api/rejections', rejectionData);
     return response.data;
   }
 
   // ============ Compliance Endpoints ============
 
-  async getPendingComplianceLetters() {
+  async getPendingComplianceLetters(): Promise<DashboardComplianceLetter[]> {
     const response = await this.client.get('/api/compliance/letters/pending');
-    return response.data;
+    return response.data as DashboardComplianceLetter[];
   }
 
-  async createComplianceLetter(letterData: any) {
+  async createComplianceLetter(letterData: Record<string, unknown>) {
     const response = await this.client.post('/api/compliance/letters', letterData);
     return response.data;
   }
 
   // ============ Analytics Endpoints ============
 
-  async getDashboardAnalytics() {
+  async getDashboardAnalytics(): Promise<DashboardAnalytics | null> {
     const response = await this.client.get('/api/analytics/dashboard');
-    return response.data;
+    return response.data as DashboardAnalytics | null;
   }
 
-  async getTrends(days: number = 30) {
+  async getTrends(days: number = 30): Promise<TrendsResponse> {
     const response = await this.client.get('/api/analytics/trends', { params: { days } });
-    return response.data;
+    return response.data as TrendsResponse;
   }
 
   // ============ AI/ML Endpoints ============
 
-  async analyzeFraud(claims: any[]) {
+  async analyzeFraud(claims: FraudDetectionInput[]): Promise<FraudDetectionResult> {
     const response = await this.client.post('/api/ai/fraud-detection', { claims });
-    return response.data;
+    return response.data as FraudDetectionResult;
   }
 
-  async runPredictiveAnalytics(historicalData: any[]) {
+  async runPredictiveAnalytics(
+    historicalData: PredictiveHistoricalPoint[]
+  ): Promise<PredictiveAnalyticsResult> {
     const response = await this.client.post('/api/ai/predictive-analytics', {
       historical_data: historicalData
     });
-    return response.data;
+    return response.data as PredictiveAnalyticsResult;
   }
 
   async getPhysicianRisk(physicianId: string) {
@@ -157,24 +175,24 @@ class APIClient {
 
   // ============ Appeals Endpoints ============
 
-  async createAppeal(appealData: any) {
+  async createAppeal(appealData: AppealRecordInput): Promise<AppealRecord> {
     const response = await this.client.post('/api/appeals', appealData);
-    return response.data;
+    return response.data as AppealRecord;
   }
 
-  async getAppeals(status?: string) {
+  async getAppeals(status?: string): Promise<AppealRecord[]> {
     const response = await this.client.get('/api/appeals', { params: { status } });
-    return response.data;
+    return response.data as AppealRecord[];
   }
 
   // ============ NPHIES Integration Endpoints ============
 
-  async submitClaimToNPHIES(claimData: any) {
+  async submitClaimToNPHIES(claimData: Record<string, unknown>) {
     const response = await this.client.post('/api/nphies/submit-claim', claimData);
     return response.data;
   }
 
-  async submitAppealToNPHIES(appealData: any) {
+  async submitAppealToNPHIES(appealData: Record<string, unknown>) {
     const response = await this.client.post('/api/nphies/submit-appeal', appealData);
     return response.data;
   }
@@ -186,19 +204,19 @@ class APIClient {
 
   // ============ FHIR Validation Endpoints ============
 
-  async validateFHIR(fhirData: any) {
+  async validateFHIR(fhirData: Record<string, unknown>) {
     const response = await this.client.post('/api/fhir/validate', { fhir_data: fhirData });
     return response.data;
   }
 
   // ============ Teams Integration Endpoints ============
 
-  async sendTeamsComplianceLetter(data: any) {
+  async sendTeamsComplianceLetter(data: Record<string, unknown>) {
     const response = await this.client.post('/api/teams/notifications/compliance-letter', data);
     return response.data;
   }
 
-  async sendTeamsRejectionSummary(data: any) {
+  async sendTeamsRejectionSummary(data: Record<string, unknown>) {
     const response = await this.client.post('/api/teams/notifications/rejection-summary', data);
     return response.data;
   }
@@ -243,9 +261,9 @@ class APIClient {
 
   // ============ Health Check ============
 
-  async healthCheck() {
+  async healthCheck(): Promise<HealthStatus> {
     const response = await this.client.get('/health');
-    return response.data;
+    return response.data as HealthStatus;
   }
 }
 

@@ -228,7 +228,7 @@ export class OASISError extends Error {
   constructor(
     message: string,
     public code: string,
-    public details?: any
+    public details?: unknown
   ) {
     super(message);
     this.name = 'OASISError';
@@ -236,21 +236,21 @@ export class OASISError extends Error {
 }
 
 export class OASISAuthenticationError extends OASISError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: unknown) {
     super(message, 'AUTH_ERROR', details);
     this.name = 'OASISAuthenticationError';
   }
 }
 
 export class OASISNetworkError extends OASISError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: unknown) {
     super(message, 'NETWORK_ERROR', details);
     this.name = 'OASISNetworkError';
   }
 }
 
 export class OASISDataError extends OASISError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: unknown) {
     super(message, 'DATA_ERROR', details);
     this.name = 'OASISDataError';
   }
