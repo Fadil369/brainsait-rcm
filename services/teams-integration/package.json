@@ -1,0 +1,35 @@
+{
+  "name": "@brainsait/teams-integration",
+  "version": "1.0.0",
+  "description": "Microsoft Teams integration service for stakeholder communication",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "test": "echo \"Tests coming soon\""
+  },
+  "keywords": [
+    "teams",
+    "notifications",
+    "stakeholder",
+    "channels",
+    "healthcare"
+  ],
+  "author": "BrainSAIT",
+  "license": "MIT",
+  "dependencies": {
+    "@microsoft/agents-hosting": "^0.4.3",
+    "@microsoft/agents-hosting-teams": "^0.4.3",
+    "@microsoft/agents-activity": "^0.4.3",
+    "adaptivecards": "^2.3.1",
+    "adaptivecards-templating": "^2.3.1",
+    "mongodb": "^6.3.0",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  }
+}

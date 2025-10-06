@@ -1,0 +1,114 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.4",
+  "body": [
+    {
+      "type": "Container",
+      "style": "emphasis",
+      "items": [
+        {
+          "type": "ColumnSet",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "items": [
+                {
+                  "type": "Image",
+                  "url": "https://brainsait.com/logo.png",
+                  "size": "small",
+                  "altText": "BrainSAIT Logo"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "${title}",
+                  "weight": "bolder",
+                  "size": "large",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "${subtitle}",
+                  "isSubtle": true,
+                  "wrap": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "items": [
+        {
+          "type": "FactSet",
+          "facts": [
+            {
+              "title": "Insurance Company | شركة التأمين:",
+              "value": "${insuranceCompany}"
+            },
+            {
+              "title": "Claim ID | معرف المطالبة:",
+              "value": "${claimId}"
+            },
+            {
+              "title": "Amount | المبلغ:",
+              "value": "${amount}"
+            },
+            {
+              "title": "Rejection Date | تاريخ الرفض:",
+              "value": "${rejectionDate}"
+            },
+            {
+              "title": "Deadline | الموعد النهائي:",
+              "value": "${deadline}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "${message}",
+          "wrap": true,
+          "spacing": "medium"
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "style": "${severity}",
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "${statusMessage}",
+          "wrap": true,
+          "weight": "bolder"
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.OpenUrl",
+      "title": "View Details | عرض التفاصيل",
+      "url": "${detailsUrl}"
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "Submit Appeal | تقديم استئناف",
+      "url": "${appealUrl}"
+    }
+  ]
+}
