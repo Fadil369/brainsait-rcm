@@ -1,0 +1,21 @@
+# Teams App Outline Icon Placeholder
+# 
+# This is a placeholder for the outline icon (32x32 pixels)
+# 
+# To create the actual icon:
+# 1. Create a 32x32 PNG image
+# 2. Use single color outline on transparent background
+# 3. Must be monochrome (black/white)
+# 4. Save as: outline.png
+# 
+# Required specifications:
+# - Format: PNG
+# - Size: 32x32 pixels
+# - Max file size: 5KB
+# - Transparent background required
+# - Monochrome outline only
+# 
+# Design suggestion:
+# - Simplified version of color icon
+# - Clear, bold outline
+# - Recognizable at small size

@@ -1,0 +1,20 @@
+# Teams App Color Icon Placeholder
+# 
+# This is a placeholder for the color icon (192x192 pixels)
+# 
+# To create the actual icon:
+# 1. Create a 192x192 PNG image
+# 2. Use BrainSAIT brand colors (Medical Blue #2b6cb8, Violet #5b21b6)
+# 3. Include healthcare/channel symbolism (e.g., chat bubbles, medical cross)
+# 4. Save as: color.png
+# 
+# Required specifications:
+# - Format: PNG
+# - Size: 192x192 pixels
+# - Max file size: 50KB
+# - Transparent background recommended
+# 
+# Design suggestion:
+# - Central icon: Medical cross + chat bubble combination
+# - Color gradient: Blue to violet
+# - Style: Modern, minimal, professional
