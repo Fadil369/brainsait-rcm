@@ -1,0 +1,25 @@
+{
+  "name": "teams-stakeholder-channels-bot",
+  "version": "1.0.0",
+  "description": "Teams Bot for Stakeholder Channels",
+  "main": "index.ts",
+  "scripts": {
+    "dev": "nodemon --exec ts-node index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "watch": "tsc --watch"
+  },
+  "dependencies": {
+    "botbuilder": "^4.21.0",
+    "restify": "^11.1.0",
+    "axios": "^1.6.7",
+    "dotenv": "^16.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.16",
+    "@types/restify": "^8.5.12",
+    "nodemon": "^3.0.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}

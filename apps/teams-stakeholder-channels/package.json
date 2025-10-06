@@ -1,0 +1,41 @@
+{
+  "name": "teams-stakeholder-channels",
+  "version": "1.0.0",
+  "description": "Microsoft Teams app for BrainSAIT RCM Stakeholder Channels collaboration",
+  "main": "index.js",
+  "scripts": {
+    "dev": "npm-run-all --parallel dev:*",
+    "dev:tab": "cd src && npm start",
+    "dev:bot": "cd bot && npm run dev",
+    "dev:api": "cd api && npm run start",
+    "build": "npm run build:tab && npm run build:bot",
+    "build:tab": "cd src && npm run build",
+    "build:bot": "cd bot && npm run build",
+    "test": "echo \"No tests yet\"",
+    "prepare-manifest": "node scripts/prepare-manifest.js"
+  },
+  "keywords": [
+    "teams",
+    "microsoft-365",
+    "stakeholder-channels",
+    "collaboration",
+    "healthcare"
+  ],
+  "author": "BrainSAIT",
+  "license": "MIT",
+  "dependencies": {
+    "@microsoft/teams-js": "^2.19.0",
+    "@fluentui/react-components": "^9.47.0",
+    "@fluentui/react-icons": "^2.0.239",
+    "axios": "^1.6.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.55",
+    "@types/react-dom": "^18.2.19",
+    "@types/node": "^20.11.16",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.3.3"
+  }
+}
