@@ -11,6 +11,7 @@ import { FraudDetectionModal } from './FraudDetectionModal';
 import { PredictiveAnalyticsModal } from './PredictiveAnalyticsModal';
 import { WhatsAppModal } from './WhatsAppModal';
 import { ComplianceLetterModal } from './ComplianceLetterModal';
+import { TeamsNotificationModal } from './TeamsNotificationModal';
 import { NPHIESModal } from './NPHIESModal';
 import { AuditTrailModal } from './AuditTrailModal';
 import { Button } from './ui/Button';
@@ -67,6 +68,7 @@ const ACTIONS = [
   { id: 'fraud', icon: '🔍', label: { en: 'Fraud Detection', ar: 'كشف الاحتيال' } },
   { id: 'predict', icon: '📈', label: { en: 'Predictive Analytics', ar: 'تحليلات تنبؤية' } },
   { id: 'compliance', icon: '📄', label: { en: 'Compliance Letter', ar: 'خطاب امتثال' } },
+  { id: 'teams', icon: '📢', label: { en: 'Teams Notification', ar: 'إشعار Teams' } },
   { id: 'nphies', icon: '🏥', label: { en: 'NPHIES Submit', ar: 'تقديم NPHIES' } },
   { id: 'whatsapp', icon: '💬', label: { en: 'WhatsApp Notice', ar: 'إشعار واتساب' } },
   { id: 'audit', icon: '🛡️', label: { en: 'Audit Trail', ar: 'سجل المراجعة' } },
@@ -83,6 +85,7 @@ export function RejectionDashboard({ userRole, locale, userName, onLocaleChange 
   const [showPredictiveAnalytics, setShowPredictiveAnalytics] = useState(false);
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [showComplianceLetter, setShowComplianceLetter] = useState(false);
+  const [showTeamsNotification, setShowTeamsNotification] = useState(false);
   const [showNPHIES, setShowNPHIES] = useState(false);
   const [showAuditTrail, setShowAuditTrail] = useState(false);
   const [showMobileActions, setShowMobileActions] = useState(false);
@@ -117,6 +120,7 @@ export function RejectionDashboard({ userRole, locale, userName, onLocaleChange 
       fraud: () => setShowFraudDetection(true),
       predict: () => setShowPredictiveAnalytics(true),
       compliance: () => setShowComplianceLetter(true),
+      teams: () => setShowTeamsNotification(true),
       nphies: () => setShowNPHIES(true),
       whatsapp: () => setShowWhatsApp(true),
       audit: () => setShowAuditTrail(true),
@@ -127,6 +131,7 @@ export function RejectionDashboard({ userRole, locale, userName, onLocaleChange 
       setShowFraudDetection,
       setShowPredictiveAnalytics,
       setShowComplianceLetter,
+      setShowTeamsNotification,
       setShowNPHIES,
       setShowWhatsApp,
       setShowAuditTrail,
@@ -310,6 +315,7 @@ export function RejectionDashboard({ userRole, locale, userName, onLocaleChange 
           predictiveAnalytics: showPredictiveAnalytics,
           whatsapp: showWhatsApp,
           complianceLetter: showComplianceLetter,
+          teamsNotification: showTeamsNotification,
           nphies: showNPHIES,
           auditTrail: showAuditTrail,
         }}
@@ -320,6 +326,7 @@ export function RejectionDashboard({ userRole, locale, userName, onLocaleChange 
           predictiveAnalytics: () => setShowPredictiveAnalytics(false),
           whatsapp: () => setShowWhatsApp(false),
           complianceLetter: () => setShowComplianceLetter(false),
+          teamsNotification: () => setShowTeamsNotification(false),
           nphies: () => setShowNPHIES(false),
           auditTrail: () => setShowAuditTrail(false),
         }}
@@ -654,6 +661,7 @@ function ActionModals({
     predictiveAnalytics: boolean;
     whatsapp: boolean;
     complianceLetter: boolean;
+    teamsNotification: boolean;
     nphies: boolean;
     auditTrail: boolean;
   };
@@ -664,6 +672,7 @@ function ActionModals({
     predictiveAnalytics: () => void;
     whatsapp: () => void;
     complianceLetter: () => void;
+    teamsNotification: () => void;
     nphies: () => void;
     auditTrail: () => void;
   };
@@ -702,6 +711,11 @@ function ActionModals({
         isOpen={show.complianceLetter}
         onClose={close.complianceLetter}
         onSuccess={onSuccess}
+        locale={locale}
+      />
+      <TeamsNotificationModal
+        isOpen={show.teamsNotification}
+        onClose={close.teamsNotification}
         locale={locale}
       />
       <NPHIESModal
