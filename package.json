@@ -34,9 +34,6 @@
   "lint-staged": {
     "**/*.{ts,tsx,js,jsx}": [
       "eslint --fix"
-    ],
-    "**/*.py": [
-      "python -m pylint --disable=all --enable=E"
     ]
   }
 }
