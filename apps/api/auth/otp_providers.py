@@ -3,7 +3,7 @@ OTP (One-Time Password) providers for Email, SMS, and WhatsApp
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Literal
+from typing import Literal, Mapping, cast
 import os
 import secrets
 import hashlib
@@ -11,8 +11,8 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-from motor.motor_asyncio import AsyncIOMotorDatabase
 from fastapi import HTTPException, status
+from apps.api.db_types import Database, DocumentDict
 
 # Import Twilio (will be installed via requirements.txt)
 try:
@@ -24,7 +24,7 @@ except ImportError:
 class OTPProvider:
     """Base OTP provider class"""
     
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: Database):
         """
         Initialize OTP provider.
         
@@ -60,8 +60,8 @@ class OTPProvider:
             purpose: OTP purpose
         """
         otp_hash = self.hash_otp(otp)
-        
-        await self.db.otp_verifications.insert_one({
+
+        otp_document: DocumentDict = {
             "identifier": identifier,
             "otp_hash": otp_hash,
             "method": method,
@@ -72,7 +72,9 @@ class OTPProvider:
                 minutes=self.otp_expiry_minutes
             ),
             "verified": False
-        })
+        }
+
+        await self.db.otp_verifications.insert_one(otp_document)
     
     async def verify_otp(
         self,
@@ -111,7 +113,8 @@ class OTPProvider:
             )
         
         # Check attempts
-        if otp_doc["attempts"] >= self.max_attempts:
+        attempts = cast(int, otp_doc.get("attempts", 0))
+        if attempts >= self.max_attempts:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Maximum OTP attempts exceeded"
@@ -124,7 +127,7 @@ class OTPProvider:
         )
         
         # Verify OTP
-        if otp_doc["otp_hash"] == otp_hash:
+        if cast(str, otp_doc.get("otp_hash")) == otp_hash:
             # Mark as verified
             await self.db.otp_verifications.update_one(
                 {"_id": otp_doc["_id"]},
@@ -138,15 +141,23 @@ class OTPProvider:
 class EmailOTPProvider(OTPProvider):
     """Email OTP provider using SMTP"""
     
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: Database):
         """Initialize email OTP provider"""
         super().__init__(db)
         
-        self.smtp_host = os.getenv("SMTP_HOST")
+        smtp_host = os.getenv("SMTP_HOST")
+        smtp_username = os.getenv("SMTP_USERNAME")
+        smtp_password = os.getenv("SMTP_PASSWORD")
+        if smtp_host is None or smtp_username is None or smtp_password is None:
+            raise ValueError("SMTP credentials not configured")
+
+        from_email = os.getenv("SMTP_FROM_EMAIL") or smtp_username
+
+        self.smtp_host = smtp_host
         self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
-        self.smtp_username = os.getenv("SMTP_USERNAME")
-        self.smtp_password = os.getenv("SMTP_PASSWORD")
-        self.from_email = os.getenv("SMTP_FROM_EMAIL", self.smtp_username)
+        self.smtp_username = smtp_username
+        self.smtp_password = smtp_password
+        self.from_email = from_email
     
     async def send_otp(
         self,
@@ -214,7 +225,7 @@ class EmailOTPProvider(OTPProvider):
 class SMSOTPProvider(OTPProvider):
     """SMS OTP provider using Twilio"""
     
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: Database):
         """Initialize SMS OTP provider"""
         super().__init__(db)
         
@@ -223,11 +234,12 @@ class SMSOTPProvider(OTPProvider):
         
         account_sid = os.getenv("TWILIO_ACCOUNT_SID")
         auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-        self.from_phone = os.getenv("TWILIO_PHONE_NUMBER")
+        from_phone = os.getenv("TWILIO_PHONE_NUMBER")
         
-        if not all([account_sid, auth_token, self.from_phone]):
+        if account_sid is None or auth_token is None or from_phone is None:
             raise ValueError("Twilio credentials not configured")
         
+        self.from_phone = from_phone
         self.client = TwilioClient(account_sid, auth_token)
     
     async def send_otp(
@@ -267,7 +279,7 @@ class SMSOTPProvider(OTPProvider):
 class WhatsAppOTPProvider(OTPProvider):
     """WhatsApp OTP provider using Twilio WhatsApp Business API"""
     
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: Database):
         """Initialize WhatsApp OTP provider"""
         super().__init__(db)
         
@@ -276,11 +288,12 @@ class WhatsAppOTPProvider(OTPProvider):
         
         account_sid = os.getenv("TWILIO_ACCOUNT_SID")
         auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-        self.from_whatsapp = os.getenv("TWILIO_WHATSAPP_NUMBER")
+        from_whatsapp = os.getenv("TWILIO_WHATSAPP_NUMBER")
         
-        if not all([account_sid, auth_token, self.from_whatsapp]):
+        if account_sid is None or auth_token is None or from_whatsapp is None:
             raise ValueError("Twilio WhatsApp credentials not configured")
         
+        self.from_whatsapp = from_whatsapp
         self.client = TwilioClient(account_sid, auth_token)
     
     async def send_otp(

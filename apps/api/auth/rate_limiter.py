@@ -3,9 +3,9 @@ Rate limiting middleware for authentication endpoints
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from typing import Optional, cast
 from fastapi import HTTPException, status, Request
+from apps.api.db_types import Database, DocumentDict
 
 
 class RateLimiter:
@@ -13,7 +13,7 @@ class RateLimiter:
     
     def __init__(
         self,
-        db: AsyncIOMotorDatabase,
+    db: Database,
         max_requests: int,
         window_minutes: int,
         identifier_key: str = "ip"
@@ -61,9 +61,11 @@ class RateLimiter:
         })
         
         if rate_limit_doc:
-            if rate_limit_doc["count"] >= self.max_requests:
+            count = cast(int, rate_limit_doc.get("count", 0))
+            window_start_value = cast(datetime, rate_limit_doc.get("window_start", now))
+            if count >= self.max_requests:
                 retry_after = int(
-                    (rate_limit_doc["window_start"] + 
+                    (window_start_value + 
                      timedelta(minutes=self.window_minutes) - now)
                     .total_seconds()
                 )
@@ -80,13 +82,14 @@ class RateLimiter:
             )
         else:
             # Create new rate limit entry
-            await self.db.rate_limits.insert_one({
+            document: DocumentDict = {
                 "identifier": identifier,
                 "endpoint": endpoint,
                 "count": 1,
                 "window_start": now,
                 "expires_at": now + timedelta(minutes=self.window_minutes + 5)
-            })
+            }
+            await self.db.rate_limits.insert_one(document)
         
         return True
 

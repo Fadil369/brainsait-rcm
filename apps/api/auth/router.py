@@ -3,9 +3,9 @@ Authentication router with all endpoints
 """
 
 from datetime import datetime, timezone
-from typing import Optional, Literal
+from typing import Literal, Mapping, Optional, Sequence, cast
+from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from .models import (
     UserCreate, UserLogin, TokenResponse, UserResponse,
@@ -16,32 +16,134 @@ from .jwt_handler import (
     verify_refresh_token, revoke_refresh_token, rotate_refresh_token
 )
 from .password import verify_password, get_password_hash
-from .dependencies import get_current_user, get_current_active_user
+from .dependencies import AuthenticatedUser, get_current_active_user
 from .rate_limiter import (
     login_rate_limit, otp_request_rate_limit, registration_rate_limit,
     get_client_ip
 )
 from .otp_providers import EmailOTPProvider, SMSOTPProvider, WhatsAppOTPProvider
 from .oauth_providers import GoogleOAuthProvider, GitHubOAuthProvider
+from apps.api.db_types import Database, DocumentDict
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-async def get_db() -> AsyncIOMotorDatabase:
+def _optional_str(value: object) -> Optional[str]:
+    """Convert retrieved document values into optional strings."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    return str(value)
+
+
+def _ensure_object_id(value: object) -> ObjectId:
+    """Safely cast a document identifier to ObjectId."""
+    if isinstance(value, ObjectId):
+        return value
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Database document is missing a valid identifier"
+    )
+
+
+def _cast_document(value: object | None) -> Optional[DocumentDict]:
+    """Cast Motor query results into a concrete document mapping."""
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return cast(DocumentDict, value)
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Unexpected database document shape"
+    )
+
+
+def _ensure_document(value: object | None, not_found: HTTPException) -> DocumentDict:
+    """Ensure a document exists or raise the provided exception."""
+    document = _cast_document(value)
+    if document is None:
+        raise not_found
+    return document
+
+
+def _optional_datetime(value: object) -> Optional[datetime]:
+    """Convert optional values to datetimes when present."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Expected datetime in database document"
+    )
+
+
+def _require_datetime(value: object, field: str) -> datetime:
+    """Ensure a datetime value exists in a document."""
+    dt = _optional_datetime(value)
+    if dt is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Missing required timestamp '{field}'"
+        )
+    return dt
+
+
+def _build_token_payload(user_id: str, user: Mapping[str, object]) -> dict[str, object]:
+    """Construct the JWT payload from a stored user document."""
+    return {
+        "sub": user_id,
+        "email": _optional_str(user.get("email")),
+        "role": _optional_str(user.get("role")) or "USER",
+        "username": _optional_str(user.get("username"))
+    }
+
+
+def _request_device_info(request: Request) -> dict[str, object]:
+    """Capture lightweight request metadata for refresh tokens."""
+    return {
+        "ip_address": get_client_ip(request),
+        "user_agent": request.headers.get("User-Agent")
+    }
+
+
+async def _issue_tokens(
+    user_id: str,
+    user: Mapping[str, object],
+    request: Request,
+    db: Database
+) -> TokenResponse:
+    """Create access and refresh tokens for the given user."""
+    access_token = create_access_token(_build_token_payload(user_id, user))
+    refresh_token = await create_refresh_token(
+        user_id,
+        db,
+        device_info=_request_device_info(request)
+    )
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type="bearer",
+        expires_in=900
+    )
+
+
+async def get_db() -> Database:
     """Get database instance"""
     from main import db
-    return db
+    return cast(Database, db)
 
 
 async def log_auth_event(
-    db: AsyncIOMotorDatabase,
+    db: Database,
     user_id: Optional[str],
     event_type: str,
     method: str,
     success: bool,
     request: Request,
-    metadata: Optional[dict] = None
-):
+    metadata: Optional[Mapping[str, object]] = None
+) -> None:
     """Log authentication event for audit trail"""
     await db.auth_events.insert_one({
         "user_id": user_id,
@@ -50,7 +152,7 @@ async def log_auth_event(
         "success": success,
         "ip_address": get_client_ip(request),
         "user_agent": request.headers.get("User-Agent"),
-        "metadata": metadata or {},
+        "metadata": dict(metadata) if metadata else {},
         "created_at": datetime.now(timezone.utc)
     })
 
@@ -59,7 +161,7 @@ async def log_auth_event(
 async def register(
     user_data: UserCreate,
     request: Request,
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: Database = Depends(get_db)
 ):
     """
     Register a new user with multiple authentication methods.
@@ -76,13 +178,13 @@ async def register(
     await registration_rate_limit(request)
     
     # Check if user already exists
-    existing_user = None
+    existing_user: Optional[DocumentDict] = None
     if user_data.email:
-        existing_user = await db.users.find_one({"email": user_data.email})
+        existing_user = _cast_document(await db.users.find_one({"email": user_data.email}))
     if not existing_user and user_data.phone:
-        existing_user = await db.users.find_one({"phone": user_data.phone})
+        existing_user = _cast_document(await db.users.find_one({"phone": user_data.phone}))
     if not existing_user and user_data.username:
-        existing_user = await db.users.find_one({"username": user_data.username})
+        existing_user = _cast_document(await db.users.find_one({"username": user_data.username}))
     
     if existing_user:
         await log_auth_event(
@@ -95,7 +197,7 @@ async def register(
         )
     
     # Create user document
-    user_doc = {
+    user_doc: DocumentDict = {
         "email": user_data.email,
         "phone": user_data.phone,
         "username": user_data.username,
@@ -129,35 +231,14 @@ async def register(
         True, request
     )
     
-    # Create tokens
-    access_token = create_access_token({
-        "sub": user_id,
-        "email": user_data.email,
-        "role": "USER",
-        "username": user_data.username
-    })
-    
-    refresh_token = await create_refresh_token(
-        user_id, db,
-        device_info={
-            "ip_address": get_client_ip(request),
-            "user_agent": request.headers.get("User-Agent")
-        }
-    )
-    
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type="bearer",
-        expires_in=900  # 15 minutes
-    )
+    return await _issue_tokens(user_id, user_doc, request, db)
 
 
 @router.post("/login", response_model=TokenResponse)
 async def login(
     credentials: UserLogin,
     request: Request,
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: Database = Depends(get_db)
 ):
     """
     Login with email/phone/username and password.
@@ -166,15 +247,15 @@ async def login(
     await login_rate_limit(request, credentials.identifier)
     
     # Find user by identifier (email, phone, or username)
-    user = await db.users.find_one({
+    user = _cast_document(await db.users.find_one({
         "$or": [
             {"email": credentials.identifier},
             {"phone": credentials.identifier},
             {"username": credentials.identifier}
         ]
-    })
+    }))
     
-    if not user:
+    if user is None:
         await log_auth_event(
             db, None, "login_failed", "password",
             False, request, {"reason": "user_not_found"}
@@ -183,11 +264,19 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password"
         )
+    raw_user_id = user.get("_id")
+    if raw_user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="User record missing identifier"
+        )
+    user_id = str(raw_user_id)
     
     # Verify password
-    if not user.get("hashed_password"):
+    hashed_password = _optional_str(user.get("hashed_password"))
+    if hashed_password is None:
         await log_auth_event(
-            db, str(user["_id"]), "login_failed", "password",
+            db, user_id, "login_failed", "password",
             False, request, {"reason": "no_password_set"}
         )
         raise HTTPException(
@@ -195,9 +284,9 @@ async def login(
             detail="Password authentication not enabled for this account"
         )
     
-    if not verify_password(credentials.password, user["hashed_password"]):
+    if not verify_password(credentials.password, hashed_password):
         await log_auth_event(
-            db, str(user["_id"]), "login_failed", "password",
+            db, user_id, "login_failed", "password",
             False, request, {"reason": "invalid_password"}
         )
         raise HTTPException(
@@ -206,21 +295,20 @@ async def login(
         )
     
     # Check user status
-    if user.get("status") != "active":
+    status_value = _optional_str(user.get("status"))
+    if status_value != "active":
         await log_auth_event(
-            db, str(user["_id"]), "login_failed", "password",
-            False, request, {"reason": f"user_{user.get('status')}"}
+            db, user_id, "login_failed", "password",
+            False, request, {"reason": f"user_{status_value}"}
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"User account is {user.get('status')}"
+            detail=f"User account is {status_value}"
         )
-    
-    user_id = str(user["_id"])
     
     # Update last login
     await db.users.update_one(
-        {"_id": user["_id"]},
+        {"_id": raw_user_id},
         {"$set": {"last_login": datetime.now(timezone.utc)}}
     )
     
@@ -230,35 +318,14 @@ async def login(
         True, request
     )
     
-    # Create tokens
-    access_token = create_access_token({
-        "sub": user_id,
-        "email": user.get("email"),
-        "role": user.get("role", "USER"),
-        "username": user.get("username")
-    })
-    
-    refresh_token = await create_refresh_token(
-        user_id, db,
-        device_info={
-            "ip_address": get_client_ip(request),
-            "user_agent": request.headers.get("User-Agent")
-        }
-    )
-    
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type="bearer",
-        expires_in=900
-    )
+    return await _issue_tokens(user_id, user, request, db)
 
 
 @router.post("/otp/request")
 async def request_otp(
     otp_request: OTPRequest,
     request: Request,
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: Database = Depends(get_db)
 ):
     """
     Request OTP via email, SMS, or WhatsApp.
@@ -300,7 +367,7 @@ async def request_otp(
 async def verify_otp(
     otp_data: OTPVerify,
     request: Request,
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: Database = Depends(get_db)
 ):
     """
     Verify OTP and login/register user.
@@ -411,7 +478,7 @@ async def verify_otp(
 @router.get("/oauth/{provider}/authorize")
 async def oauth_authorize(
     provider: Literal["google", "github"],
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: Database = Depends(get_db)
 ):
     """
     Get OAuth authorization URL for the specified provider.
@@ -435,12 +502,11 @@ async def oauth_callback(
     provider: Literal["google", "github"],
     code: str,
     request: Request,
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: Database = Depends(get_db)
 ):
     """
     Handle OAuth callback and login/register user.
     """
-    # Exchange code for user info
     if provider == "google":
         oauth_provider = GoogleOAuthProvider(db)
     elif provider == "github":
@@ -557,7 +623,7 @@ async def oauth_callback(
 async def refresh_token(
     token_data: TokenRefresh,
     request: Request,
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: Database = Depends(get_db)
 ):
     """
     Refresh access token using refresh token.
@@ -618,7 +684,7 @@ async def refresh_token(
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
     current_user: dict = Depends(get_current_active_user),
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: Database = Depends(get_db)
 ):
     """
     Get current authenticated user information.
@@ -653,7 +719,7 @@ async def logout(
     token_data: TokenRefresh,
     request: Request,
     current_user: dict = Depends(get_current_active_user),
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: Database = Depends(get_db)
 ):
     """
     Logout user by revoking refresh token.
@@ -680,7 +746,7 @@ async def change_password(
     password_data: PasswordChange,
     request: Request,
     current_user: dict = Depends(get_current_active_user),
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: Database = Depends(get_db)
 ):
     """
     Change user password.
@@ -688,22 +754,23 @@ async def change_password(
     from bson import ObjectId
     
     # Get user
-    user = await db.users.find_one({"_id": ObjectId(current_user["id"])})
+    user = _cast_document(await db.users.find_one({"_id": ObjectId(current_user["id"])}))
     
-    if not user:
+    if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
     
     # Verify old password
-    if not user.get("hashed_password"):
+    hashed_password = _optional_str(user.get("hashed_password"))
+    if hashed_password is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Password authentication not enabled for this account"
         )
     
-    if not verify_password(password_data.old_password, user["hashed_password"]):
+    if not verify_password(password_data.old_password, hashed_password):
         await log_auth_event(
             db, current_user["id"], "password_change_failed", "password",
             False, request, {"reason": "invalid_old_password"}

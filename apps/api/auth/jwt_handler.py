@@ -3,22 +3,23 @@ JWT token handling with access and refresh tokens
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Any
+from typing import Mapping, MutableMapping, Optional, cast
 import os
 import hashlib
 import secrets
 from jose import JWTError, jwt
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from apps.api.db_types import Database, DocumentDict
 from fastapi import HTTPException, status
 
 
 # Configuration from environment
-JWT_SECRET = os.getenv("JWT_SECRET_KEY")
-if not JWT_SECRET:
+_jwt_secret = os.getenv("JWT_SECRET_KEY")
+if not _jwt_secret:
     raise RuntimeError(
         "JWT_SECRET_KEY must be set in environment variables. "
         "This is a security requirement."
     )
+JWT_SECRET: str = _jwt_secret
 
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
@@ -26,7 +27,7 @@ REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 
 
 def create_access_token(
-    data: Dict[str, Any],
+    data: Mapping[str, object],
     expires_delta: Optional[timedelta] = None
 ) -> str:
     """
@@ -39,7 +40,7 @@ def create_access_token(
     Returns:
         str: Encoded JWT token
     """
-    to_encode = data.copy()
+    to_encode: MutableMapping[str, object] = dict(data)
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
@@ -54,13 +55,13 @@ def create_access_token(
     })
     
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
-    return encoded_jwt
+    return cast(str, encoded_jwt)
 
 
 async def create_refresh_token(
     user_id: str,
-    db: AsyncIOMotorDatabase,
-    device_info: Optional[Dict[str, Any]] = None
+    db: Database,
+    device_info: Optional[Mapping[str, object]] = None
 ) -> str:
     """
     Create a new refresh token and store it in the database.
@@ -78,10 +79,10 @@ async def create_refresh_token(
     token_hash = hashlib.sha256(token.encode()).hexdigest()
     
     # Store token hash in database
-    refresh_token_doc = {
+    refresh_token_doc: DocumentDict = {
         "user_id": user_id,
         "token_hash": token_hash,
-        "device_info": device_info or {},
+        "device_info": dict(device_info) if device_info else {},
         "created_at": datetime.now(timezone.utc),
         "expires_at": datetime.now(timezone.utc) + timedelta(
             days=REFRESH_TOKEN_EXPIRE_DAYS
@@ -94,7 +95,7 @@ async def create_refresh_token(
     return token
 
 
-def decode_access_token(token: str) -> Dict[str, Any]:
+def decode_access_token(token: str) -> DocumentDict:
     """
     Decode and validate a JWT access token.
     
@@ -108,7 +109,7 @@ def decode_access_token(token: str) -> Dict[str, Any]:
         HTTPException: If token is invalid or expired
     """
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        payload = cast(DocumentDict, jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM]))
         
         # Verify token type
         if payload.get("type") != "access":
@@ -119,7 +120,13 @@ def decode_access_token(token: str) -> Dict[str, Any]:
         
         # Check expiration
         exp = payload.get("exp")
-        if not exp or datetime.fromtimestamp(exp, tz=timezone.utc) < datetime.now(timezone.utc):
+        if not isinstance(exp, (int, float)):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has expired"
+            )
+
+        if datetime.fromtimestamp(exp, tz=timezone.utc) < datetime.now(timezone.utc):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has expired"
@@ -136,7 +143,7 @@ def decode_access_token(token: str) -> Dict[str, Any]:
 
 async def verify_refresh_token(
     token: str,
-    db: AsyncIOMotorDatabase
+    db: Database
 ) -> Optional[str]:
     """
     Verify a refresh token and return the associated user_id.
@@ -160,12 +167,12 @@ async def verify_refresh_token(
     if not token_doc:
         return None
     
-    return token_doc["user_id"]
+    return cast(str, token_doc["user_id"])
 
 
 async def revoke_refresh_token(
     token: str,
-    db: AsyncIOMotorDatabase
+    db: Database
 ) -> bool:
     """
     Revoke a refresh token.
@@ -189,8 +196,8 @@ async def revoke_refresh_token(
 
 async def rotate_refresh_token(
     old_token: str,
-    db: AsyncIOMotorDatabase,
-    device_info: Optional[Dict[str, Any]] = None
+    db: Database,
+    device_info: Optional[Mapping[str, object]] = None
 ) -> Optional[str]:
     """
     Rotate a refresh token (revoke old, create new).
@@ -213,6 +220,4 @@ async def rotate_refresh_token(
     await revoke_refresh_token(old_token, db)
     
     # Create new token
-    new_token = await create_refresh_token(user_id, db, device_info)
-    
-    return new_token
+    return await create_refresh_token(user_id, db, device_info)

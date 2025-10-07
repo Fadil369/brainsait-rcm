@@ -2,13 +2,13 @@
 OAuth providers for Google and GitHub authentication
 """
 
-from typing import Optional, Dict, Any
+from typing import Mapping, Optional, TypedDict, cast
 import os
 import secrets
 from datetime import datetime, timezone
 import httpx
 from fastapi import HTTPException, status
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from apps.api.db_types import Database, DocumentDict
 
 try:
     from google.oauth2 import id_token
@@ -21,7 +21,7 @@ except ImportError:
 class OAuthProvider:
     """Base OAuth provider class"""
     
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: Database):
         """
         Initialize OAuth provider.
         
@@ -35,8 +35,8 @@ class OAuthProvider:
         user_id: str,
         provider: str,
         provider_user_id: str,
-        profile_data: Dict[str, Any],
-        tokens: Dict[str, str]
+    profile_data: Mapping[str, object],
+    tokens: Mapping[str, object]
     ) -> None:
         """
         Link OAuth account to user.
@@ -49,15 +49,16 @@ class OAuthProvider:
             tokens: OAuth tokens (access_token, refresh_token, etc.)
         """
         # Store encrypted tokens (basic encryption for now)
-        await self.db.oauth_providers.insert_one({
+        document: DocumentDict = {
             "user_id": user_id,
             "provider": provider,
             "provider_user_id": provider_user_id,
-            "profile_data": profile_data,
-            "tokens": tokens,  # Should be encrypted in production
+            "profile_data": dict(profile_data),
+            "tokens": dict(tokens),  # Should be encrypted in production
             "created_at": datetime.now(timezone.utc),
             "updated_at": datetime.now(timezone.utc)
-        })
+        }
+        await self.db.oauth_providers.insert_one(document)
     
     async def find_linked_account(
         self,
@@ -79,25 +80,31 @@ class OAuthProvider:
             "provider_user_id": provider_user_id
         })
         
-        return oauth_doc["user_id"] if oauth_doc else None
+        if not oauth_doc:
+            return None
+        return cast(str, oauth_doc["user_id"])
 
 
 class GoogleOAuthProvider(OAuthProvider):
     """Google OAuth provider"""
     
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: Database):
         """Initialize Google OAuth provider"""
         super().__init__(db)
         
         if not id_token or not google_requests:
             raise ImportError("google-auth library is required for Google OAuth")
         
-        self.client_id = os.getenv("GOOGLE_CLIENT_ID")
-        self.client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
-        self.redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
+        client_id = os.getenv("GOOGLE_CLIENT_ID")
+        client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+        redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
         
-        if not all([self.client_id, self.client_secret, self.redirect_uri]):
+        if client_id is None or client_secret is None or redirect_uri is None:
             raise ValueError("Google OAuth credentials not configured")
+        
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.redirect_uri = redirect_uri
     
     def get_authorization_url(self, state: Optional[str] = None) -> str:
         """
@@ -134,7 +141,7 @@ class GoogleOAuthProvider(OAuthProvider):
     async def exchange_code(
         self,
         code: str
-    ) -> Dict[str, Any]:
+    ) -> DocumentDict:
         """
         Exchange authorization code for tokens and user info.
         
@@ -161,7 +168,7 @@ class GoogleOAuthProvider(OAuthProvider):
             try:
                 response = await client.post(token_url, data=token_data)
                 response.raise_for_status()
-                tokens = response.json()
+                tokens = cast(DocumentDict, response.json())
             except Exception as e:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -169,45 +176,58 @@ class GoogleOAuthProvider(OAuthProvider):
                 )
         
         # Verify and decode ID token
-        try:
-            idinfo = id_token.verify_oauth2_token(
-                tokens["id_token"],
-                google_requests.Request(),
-                self.client_id
+        if id_token is None or google_requests is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Google OAuth dependencies are not available"
             )
-            
-            return {
-                "provider_user_id": idinfo["sub"],
-                "email": idinfo.get("email"),
-                "email_verified": idinfo.get("email_verified", False),
-                "name": idinfo.get("name"),
-                "picture": idinfo.get("picture"),
-                "tokens": {
-                    "access_token": tokens.get("access_token"),
-                    "refresh_token": tokens.get("refresh_token"),
-                    "expires_in": tokens.get("expires_in")
-                }
-            }
-        except Exception as e:
+
+        try:
+            idinfo = cast(
+                DocumentDict,
+                id_token.verify_oauth2_token(
+                    tokens["id_token"],
+                    google_requests.Request(),
+                    self.client_id
+                )
+            )
+        except Exception as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to verify ID token: {str(e)}"
-            )
+                detail=f"Failed to verify ID token: {exc}"
+            ) from exc
+
+        return {
+            "provider_user_id": cast(str, idinfo["sub"]),
+            "email": idinfo.get("email"),
+            "email_verified": bool(idinfo.get("email_verified", False)),
+            "name": idinfo.get("name"),
+            "picture": idinfo.get("picture"),
+            "tokens": {
+                "access_token": tokens.get("access_token"),
+                "refresh_token": tokens.get("refresh_token"),
+                "expires_in": tokens.get("expires_in")
+            }
+        }
 
 
 class GitHubOAuthProvider(OAuthProvider):
     """GitHub OAuth provider"""
     
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: Database):
         """Initialize GitHub OAuth provider"""
         super().__init__(db)
         
-        self.client_id = os.getenv("GITHUB_CLIENT_ID")
-        self.client_secret = os.getenv("GITHUB_CLIENT_SECRET")
-        self.redirect_uri = os.getenv("GITHUB_REDIRECT_URI")
+        client_id = os.getenv("GITHUB_CLIENT_ID")
+        client_secret = os.getenv("GITHUB_CLIENT_SECRET")
+        redirect_uri = os.getenv("GITHUB_REDIRECT_URI")
         
-        if not all([self.client_id, self.client_secret, self.redirect_uri]):
+        if client_id is None or client_secret is None or redirect_uri is None:
             raise ValueError("GitHub OAuth credentials not configured")
+        
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.redirect_uri = redirect_uri
     
     def get_authorization_url(self, state: Optional[str] = None) -> str:
         """
@@ -235,7 +255,7 @@ class GitHubOAuthProvider(OAuthProvider):
     async def exchange_code(
         self,
         code: str
-    ) -> Dict[str, Any]:
+    ) -> DocumentDict:
         """
         Exchange authorization code for tokens and user info.
         
@@ -257,6 +277,11 @@ class GitHubOAuthProvider(OAuthProvider):
             "redirect_uri": self.redirect_uri
         }
         
+        emails_raw: object | None = None
+        user_data: DocumentDict | None = None
+        tokens: DocumentDict | None = None
+        access_token: str | None = None
+
         async with httpx.AsyncClient() as client:
             try:
                 response = await client.post(
@@ -265,56 +290,68 @@ class GitHubOAuthProvider(OAuthProvider):
                     headers={"Accept": "application/json"}
                 )
                 response.raise_for_status()
-                tokens = response.json()
-                access_token = tokens["access_token"]
+                tokens = cast(DocumentDict, response.json())
+                access_token = cast(str, tokens["access_token"])
             except Exception as e:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Failed to exchange code for token: {str(e)}"
                 )
-        
-        # Get user info
-        try:
-            user_response = await client.get(
-                "https://api.github.com/user",
-                headers={
-                    "Authorization": f"Bearer {access_token}",
-                    "Accept": "application/json"
-                }
-            )
-            user_response.raise_for_status()
-            user_data = user_response.json()
-            
-            # Get primary email
-            email_response = await client.get(
-                "https://api.github.com/user/emails",
-                headers={
-                    "Authorization": f"Bearer {access_token}",
-                    "Accept": "application/json"
-                }
-            )
-            email_response.raise_for_status()
-            emails = email_response.json()
-            primary_email = next(
-                (e for e in emails if e.get("primary")), 
-                emails[0] if emails else {}
-            )
-            
-            return {
-                "provider_user_id": str(user_data["id"]),
-                "email": primary_email.get("email"),
-                "email_verified": primary_email.get("verified", False),
-                "name": user_data.get("name"),
-                "username": user_data.get("login"),
-                "picture": user_data.get("avatar_url"),
-                "tokens": {
-                    "access_token": access_token,
-                    "token_type": tokens.get("token_type"),
-                    "scope": tokens.get("scope")
-                }
-            }
-        except Exception as e:
+
+            try:
+                user_response = await client.get(
+                    "https://api.github.com/user",
+                    headers={
+                        "Authorization": f"Bearer {access_token}",
+                        "Accept": "application/json"
+                    }
+                )
+                user_response.raise_for_status()
+                user_data = cast(DocumentDict, user_response.json())
+
+                email_response = await client.get(
+                    "https://api.github.com/user/emails",
+                    headers={
+                        "Authorization": f"Bearer {access_token}",
+                        "Accept": "application/json"
+                    }
+                )
+                email_response.raise_for_status()
+                emails_raw = email_response.json()
+            except Exception as e:  # pragma: no cover - network dependencies
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Failed to get user info: {str(e)}"
+                )
+
+        if (
+            tokens is None
+            or user_data is None
+            or emails_raw is None
+            or access_token is None
+        ):
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to get user info: {str(e)}"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="GitHub OAuth response was incomplete"
             )
+
+        emails = cast(list[DocumentDict], emails_raw)
+        primary_email = next(
+            (email for email in emails if email.get("primary")),
+            emails[0] if emails else {}
+        )
+        primary_email_doc = cast(DocumentDict, primary_email)
+
+        return {
+            "provider_user_id": str(user_data["id"]),
+            "email": primary_email_doc.get("email"),
+            "email_verified": bool(primary_email_doc.get("verified", False)),
+            "name": user_data.get("name"),
+            "username": user_data.get("login"),
+            "picture": user_data.get("avatar_url"),
+            "tokens": {
+                "access_token": access_token,
+                "token_type": tokens.get("token_type"),
+                "scope": tokens.get("scope")
+            }
+        }
