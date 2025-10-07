@@ -1,8 +1,9 @@
 'use client';
 
 import { forwardRef } from 'react';
-import { cn } from '@/lib/utils';
 import type { SelectHTMLAttributes } from 'react';
+
+import { cn } from '@/lib/utils';
 
 export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   hasError?: boolean;

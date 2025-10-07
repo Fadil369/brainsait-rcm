@@ -2,21 +2,37 @@
 FastAPI dependencies for authentication and authorization
 """
 
-from typing import Optional
+from typing import TypedDict, cast
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from .jwt_handler import decode_access_token
-from .models import UserResponse
 
 
 security = HTTPBearer()
 
 
+class AuthenticatedUser(TypedDict):
+    """Authenticated user information extracted from JWT."""
+
+    id: str
+    email: str | None
+    role: str | None
+    username: str | None
+
+
+def _optional_str(value: object) -> str | None:
+    """Normalize arbitrary values to optional strings for token payloads."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    return str(value)
+
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security)
-) -> dict:
+) -> AuthenticatedUser:
     """
     Get current user from JWT token.
     
@@ -33,23 +49,23 @@ async def get_current_user(
     payload = decode_access_token(token)
     
     user_id = payload.get("sub")
-    if not user_id:
+    if not isinstance(user_id, str):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials"
         )
     
     return {
-        "id": user_id,
-        "email": payload.get("email"),
-        "role": payload.get("role"),
-        "username": payload.get("username")
+        "id": cast(str, user_id),
+        "email": _optional_str(payload.get("email")),
+        "role": _optional_str(payload.get("role")),
+        "username": _optional_str(payload.get("username"))
     }
 
 
 async def get_current_active_user(
-    current_user: dict = Depends(get_current_user)
-) -> dict:
+    current_user: AuthenticatedUser = Depends(get_current_user)
+) -> AuthenticatedUser:
     """
     Get current active user (additional validation can be added).
     
@@ -75,7 +91,10 @@ class RoleChecker:
         """
         self.allowed_roles = allowed_roles
     
-    def __call__(self, current_user: dict = Depends(get_current_user)) -> dict:
+    def __call__(
+        self,
+        current_user: AuthenticatedUser = Depends(get_current_user)
+    ) -> AuthenticatedUser:
         """
         Check if user has required role.
         

@@ -1,0 +1,1 @@
+"""BrainSAIT API application package"""

@@ -4,43 +4,103 @@
 
 @layer base {
   :root {
+    color-scheme: light;
+    --brand-black: 0 0% 0%;
+    --brand-white: 0 0% 100%;
+    --brand-navy: 217 65% 11%;
+    --brand-orange: 14 91% 54%;
+    --brand-gray: 0 0% 96%;
+
+    --color-background: 0 0% 100%;
+    --color-foreground: 217 33% 12%;
+    --color-muted: 210 20% 94%;
+    --color-muted-foreground: 215 15% 45%;
+    --color-accent: 217 65% 34%;
+    --color-accent-foreground: 0 0% 100%;
+    --color-secondary: 210 20% 92%;
+    --color-secondary-foreground: 217 20% 15%;
+    --color-success: 157 71% 39%;
+    --color-warning: 32 94% 58%;
+    --color-danger: 358 82% 52%;
+    --color-info: 199 95% 51%;
+
+    --surface-base: 245 250 255;
+    --surface-strong: 226 232 240;
+    --surface-border: rgba(10, 25, 47, 0.1);
+
+    --shadow-glow: 0 18px 45px rgba(14, 165, 233, 0.22);
+    --shadow-neon: 0 0 0 1px rgba(14, 165, 233, 0.35), 0 25px 50px -20px rgba(14, 165, 233, 0.45);
+    --shadow-ambient: 0 24px 60px -32px rgba(10, 25, 47, 0.45);
+
+    --radius-md: 0.875rem;
+    --radius-lg: 1.25rem;
+    --radius-xl: 1.75rem;
+    --radius-2xl: 2.5rem;
+    --radius-sm: 0.5rem;
+
+    --space-xs: 0.5rem;
+    --space-sm: 0.75rem;
+    --space-md: 1.25rem;
+    --space-lg: 2rem;
+    --space-xl: 3rem;
+    --space-gutter: 1.75rem;
+
+    --motion-duration-fast: 150ms;
+    --motion-duration-default: 220ms;
+    --motion-duration-slow: 400ms;
+    --motion-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+    --font-size-xs: 0.75rem;
+    --font-size-sm: 0.875rem;
+    --font-size-md: 1rem;
+    --font-size-lg: 1.125rem;
+    --font-size-xl: 1.5rem;
+    --font-size-display: 3rem;
+
+    --shadow-focus: 0 0 0 3px rgba(244, 81, 30, 0.25);
+  }
+
+  [data-theme='dark'] {
     color-scheme: dark;
-    --background: 222 67% 5%;
-    --foreground: 210 40% 96%;
-    --muted: 215 27% 17%;
-    --muted-foreground: 217 15% 65%;
-    --accent: 191 97% 54%;
-    --accent-foreground: 198 100% 98%;
-    --secondary: 266 83% 58%;
-    --secondary-foreground: 266 100% 96%;
-    --danger: 0 82% 63%;
-    --warning: 35 92% 62%;
-    --success: 147 68% 45%;
-    --surface: rgba(15, 23, 42, 0.72);
-    --surface-elevated: rgba(15, 23, 42, 0.92);
-    --surface-border: rgba(148, 163, 184, 0.25);
-    --shadow-soft: 0 40px 120px -60px rgba(14, 165, 233, 0.65);
-    --shadow-strong: 0 50px 150px -70px rgba(91, 33, 182, 0.55);
-    --radius-lg: 1.5rem;
-    --radius-xl: 2.25rem;
+    --color-background: 217 65% 6%;
+    --color-foreground: 210 40% 96%;
+    --color-muted: 217 27% 18%;
+    --color-muted-foreground: 217 19% 68%;
+    --color-accent: 14 91% 54%;
+    --color-accent-foreground: 0 0% 100%;
+    --color-secondary: 217 33% 16%;
+    --color-secondary-foreground: 214 32% 88%;
+    --color-success: 157 75% 43%;
+    --color-warning: 32 94% 58%;
+    --color-danger: 358 82% 58%;
+    --color-info: 199 95% 51%;
+
+    --surface-base: 10 25 47;
+    --surface-strong: 15 32 64;
+    --surface-border: rgba(148, 163, 184, 0.26);
+
+    --shadow-glow: 0 40px 120px -60px rgba(14, 165, 233, 0.55);
+    --shadow-neon: 0 0 0 1px rgba(14, 165, 233, 0.35), 0 25px 50px -20px rgba(14, 165, 233, 0.55);
+    --shadow-ambient: 0 55px 140px -60px rgba(9, 17, 34, 0.85);
+    --shadow-focus: 0 0 0 3px rgba(14, 165, 233, 0.35);
   }
 
   * {
-    @apply border-slate-800/60;
+    border-color: transparent;
   }
 
   body {
     min-height: 100vh;
-    background-color: hsl(var(--background));
+    background-color: hsl(var(--color-background));
     background-image:
-      radial-gradient(circle at 0% 0%, rgba(91, 33, 182, 0.35), transparent 45%),
-      radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.3), transparent 40%),
-      radial-gradient(circle at 50% 100%, rgba(14, 165, 233, 0.2), transparent 55%),
-      linear-gradient(135deg, rgba(2, 6, 23, 0.95) 0%, rgba(7, 11, 29, 0.98) 100%);
-    color: hsl(var(--foreground));
+      radial-gradient(circle at 20% -10%, rgba(244, 81, 30, 0.28), transparent 55%),
+      radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.3), transparent 50%),
+      linear-gradient(135deg, rgba(4, 10, 24, 0.98) 0%, rgba(10, 25, 47, 0.96) 100%);
+    color: hsl(var(--color-foreground));
     font-feature-settings: 'liga' 1, 'kern' 1;
     scroll-behavior: smooth;
     text-rendering: optimizeLegibility;
+    transition: background-color var(--motion-duration-default) var(--motion-ease), color var(--motion-duration-default) var(--motion-ease);
   }
 
   body::before {
@@ -49,14 +109,15 @@
     inset: 0;
     pointer-events: none;
     background:
-      radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.12), transparent 45%),
-      radial-gradient(circle at 80% 10%, rgba(244, 114, 182, 0.1), transparent 40%);
+      radial-gradient(circle at 20% 20%, rgba(14, 165, 233, 0.18), transparent 45%),
+      radial-gradient(circle at 75% 15%, rgba(244, 81, 30, 0.12), transparent 45%),
+      radial-gradient(circle at 50% 85%, rgba(91, 33, 182, 0.18), transparent 55%);
     z-index: -1;
   }
 
   ::selection {
-    background: rgba(14, 165, 233, 0.4);
-    color: hsl(var(--foreground));
+    background: rgba(244, 81, 30, 0.35);
+    color: hsl(var(--color-foreground));
   }
 
   ::-webkit-scrollbar {
@@ -79,7 +140,12 @@
   }
 
   [dir='rtl'] {
-    font-family: var(--font-cairo), system-ui, sans-serif;
+    font-family: var(--font-arabic), system-ui, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-manrope), var(--font-inter), system-ui, sans-serif;
+    letter-spacing: -0.01em;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -96,28 +162,28 @@
 
 @layer components {
   .glass-morphism {
-    background: var(--surface);
-    -webkit-backdrop-filter: blur(24px);
-    backdrop-filter: blur(24px);
+    background: rgba(var(--surface-base) / 0.78);
+    -webkit-backdrop-filter: blur(28px);
+    backdrop-filter: blur(28px);
     border: 1px solid var(--surface-border);
-    box-shadow: var(--shadow-soft);
+    box-shadow: var(--shadow-ambient);
   }
 
   .glass-panel {
-    background: var(--surface-elevated);
-    -webkit-backdrop-filter: blur(32px);
-    backdrop-filter: blur(32px);
+    background: rgba(var(--surface-strong) / 0.86);
+    -webkit-backdrop-filter: blur(36px);
+    backdrop-filter: blur(36px);
     border: 1px solid var(--surface-border);
-    box-shadow: var(--shadow-strong);
+    box-shadow: var(--shadow-glow);
   }
 
   .surface-card {
     position: relative;
     overflow: hidden;
     padding: 1.5rem;
-    border-radius: 1.5rem;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    background: rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    background: rgba(var(--surface-base) / 0.55);
   }
 
   .surface-card::after {
@@ -144,11 +210,11 @@
   }
 
   .glass-morphism-dark {
-    background: rgba(3, 7, 18, 0.72);
-    -webkit-backdrop-filter: blur(24px);
-    backdrop-filter: blur(24px);
+    background: rgba(5, 12, 26, 0.78);
+    -webkit-backdrop-filter: blur(28px);
+    backdrop-filter: blur(28px);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: var(--shadow-strong);
+    box-shadow: var(--shadow-ambient);
   }
 
   /* RTL Support */
@@ -165,12 +231,26 @@
   /* Removed legacy text-balance helper to avoid cross-browser issues */
 
   .shadow-glow {
-    box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.18), 0 20px 60px -30px rgba(14, 165, 233, 0.55);
+    box-shadow: var(--shadow-glow);
   }
 
   .backdrop-gradient {
     background:
-      radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.12), transparent 45%),
-      radial-gradient(circle at 80% 20%, rgba(244, 114, 182, 0.08), transparent 40%);
+      radial-gradient(circle at 20% 20%, rgba(14, 165, 233, 0.12), transparent 45%),
+      radial-gradient(circle at 82% 18%, rgba(244, 81, 30, 0.08), transparent 40%);
+  }
+
+  .grid-overlay {
+    position: relative;
+  }
+
+  .grid-overlay::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px), linear-gradient(180deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.35;
   }
 }

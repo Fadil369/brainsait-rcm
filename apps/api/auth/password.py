@@ -2,6 +2,8 @@
 Password hashing and verification utilities
 """
 
+from typing import cast
+
 from passlib.context import CryptContext
 
 # Configure bcrypt with 12 rounds as per OWASP guidelines
@@ -23,7 +25,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         bool: True if password matches, False otherwise
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    return cast(bool, pwd_context.verify(plain_password, hashed_password))
 
 
 def get_password_hash(password: str) -> str:
@@ -36,4 +38,4 @@ def get_password_hash(password: str) -> str:
     Returns:
         str: Hashed password
     """
-    return pwd_context.hash(password)
+    return cast(str, pwd_context.hash(password))

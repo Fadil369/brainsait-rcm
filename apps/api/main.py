@@ -1,8 +1,9 @@
 import logging
 import os
 import sys
+from collections import defaultdict
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
@@ -439,43 +440,192 @@ async def get_dashboard_analytics(db = Depends(get_database)):
     try:
         now = datetime.now(timezone.utc)
         start_of_month = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+        window_start = now - timedelta(days=90)
 
-        # Monthly rejections
-        rejections = await db.rejections.find({
-            "rejection_received_date": {"$gte": start_of_month}
-        }).to_list(length=1000)
+        def _coerce_datetime(value: Any) -> Optional[datetime]:
+            if isinstance(value, datetime):
+                return value.astimezone(timezone.utc)
+            if isinstance(value, str):
+                try:
+                    parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
+                except ValueError:
+                    return None
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=timezone.utc)
+                return parsed.astimezone(timezone.utc)
+            return None
 
-        # Calculate metrics
-        total_billed = sum(r['billed_amount']['total'] for r in rejections)
-        total_rejected = sum(r['rejected_amount']['total'] for r in rejections)
-        rejection_rate = (total_rejected / total_billed * 100) if total_billed > 0 else 0
+        def _numeric(value: Any) -> float:
+            if isinstance(value, (int, float)):
+                return float(value)
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return 0.0
 
-        # Recovery stats
-        recovered_claims = [r for r in rejections if r.get('recoveredAmount')]
-        recovery_rate = (len(recovered_claims) / len(rejections) * 100) if rejections else 0
+        # Fetch last 90 days of rejections to power monthly metrics and sparkline series
+        rejection_cursor = db.rejections.find({
+            "rejection_received_date": {"$gte": window_start}
+        })
+        rejections = await rejection_cursor.to_list(length=5000)
 
-        # Compliance
+        # Monthly slice for summary metrics
+        monthly_rejections: List[Dict[str, Any]] = []
+        rejection_received_index: Dict[int, datetime] = {}
+        for index, record in enumerate(rejections):
+            received_dt = _coerce_datetime(
+                record.get('rejection_received_date') or record.get('rejectionReceivedDate')
+            )
+            if not received_dt:
+                continue
+            rejection_received_index[index] = received_dt
+            if received_dt >= start_of_month:
+                monthly_rejections.append(record)
+
+        def _billed_total(record: Dict[str, Any]) -> float:
+            billed = record.get('billed_amount') or record.get('billedAmount') or {}
+            return _numeric(getattr(billed, 'get', lambda *_: 0)('total'))
+
+        def _rejected_total(record: Dict[str, Any]) -> float:
+            rejected = record.get('rejected_amount') or record.get('rejectedAmount') or {}
+            return _numeric(getattr(rejected, 'get', lambda *_: 0)('total'))
+
+        def _within_30(record: Dict[str, Any]) -> bool:
+            return bool(
+                record.get('within30Days')
+                or record.get('within_30_days')
+                or record.get('withinThirtyDays')
+            )
+
+        def _is_recovered(record: Dict[str, Any]) -> bool:
+            if record.get('status') in {'RECOVERED', 'recovered', 'Resolved'}:
+                return True
+            if record.get('recoveredAmount') or record.get('recovered_amount'):
+                return True
+            return False
+
+        total_billed = sum(_billed_total(r) for r in monthly_rejections)
+        total_rejected = sum(_rejected_total(r) for r in monthly_rejections)
+        rejection_rate = (total_rejected / total_billed * 100) if total_billed > 0 else 0.0
+        recovery_rate = (
+            sum(1 for r in monthly_rejections if _is_recovered(r)) / len(monthly_rejections) * 100
+        ) if monthly_rejections else 0.0
+
+        compliance_hits = sum(1 for r in monthly_rejections if _within_30(r))
+
         overdue = await db.compliance_letters.count_documents({
             "status": "pending",
             "due_date": {"$lt": now}
         })
 
-        # Recent fraud alerts
-        fraud_alerts = await db.fraud_alerts.find().sort("detected_at", -1).limit(10).to_list(length=10)
+        fraud_alerts = await db.fraud_alerts.find().sort("detected_at", -1).limit(30).to_list(length=30)
+
+        # Build daily series for sparkline consumption
+        daily_stats: Dict[datetime, Dict[str, Any]] = defaultdict(lambda: {
+            "claims": 0,
+            "recovered": 0,
+            "within_30": 0,
+            "rejected_total": 0.0,
+        })
+
+        for index, rejection in enumerate(rejections):
+            received_at = rejection_received_index.get(index)
+            if not received_at:
+                received_at = _coerce_datetime(
+                    rejection.get('rejection_received_date') or rejection.get('rejectionReceivedDate')
+                )
+                if received_at:
+                    rejection_received_index[index] = received_at
+            if not received_at:
+                continue
+            day_key = datetime(received_at.year, received_at.month, received_at.day, tzinfo=timezone.utc)
+            bucket = daily_stats[day_key]
+            bucket['claims'] += 1
+            bucket['recovered'] += 1 if _is_recovered(rejection) else 0
+            bucket['within_30'] += 1 if _within_30(rejection) else 0
+            bucket['rejected_total'] += _rejected_total(rejection)
+
+        alert_daily: Dict[datetime, int] = defaultdict(int)
+        for alert in fraud_alerts:
+            detected_at = _coerce_datetime(
+                alert.get('detected_at')
+                or alert.get('detectedAt')
+                or alert.get('created_at')
+                or alert.get('createdAt')
+            )
+            if not detected_at:
+                continue
+            day_key = datetime(detected_at.year, detected_at.month, detected_at.day, tzinfo=timezone.utc)
+            alert_daily[day_key] += 1
+
+        def _format_points(series_map: Dict[datetime, Any], transform) -> List[Dict[str, Any]]:
+            points: List[Dict[str, Any]] = []
+            for day in sorted(series_map.keys()):
+                ts = int(day.timestamp()) * 1000
+                value = transform(series_map[day])
+                points.append({
+                    "timestamp": day.isoformat(),
+                    "ts": ts,
+                    "value": value
+                })
+            return points
+
+        claims_points = _format_points(daily_stats, lambda data: data['claims']) if daily_stats else []
+        recovery_points = _format_points(
+            daily_stats,
+            lambda data: (data['recovered'] / data['claims'] * 100) if data['claims'] else 0.0
+        ) if daily_stats else []
+        compliance_points = _format_points(
+            daily_stats,
+            lambda data: (data['within_30'] / data['claims'] * 100) if data['claims'] else 0.0
+        ) if daily_stats else []
+        alerts_points = _format_points(alert_daily, lambda count: count) if alert_daily else []
+
+        chart_series: List[Dict[str, Any]] = []
+        if claims_points:
+            chart_series.append({
+                "id": "claims",
+                "metric": "total_claims",
+                "label": "Claims Processed",
+                "points": claims_points
+            })
+        if recovery_points:
+            chart_series.append({
+                "id": "recovery",
+                "metric": "recovery_rate",
+                "label": "Recovery Rate",
+                "points": recovery_points
+            })
+        if alerts_points:
+            chart_series.append({
+                "id": "alerts",
+                "metric": "fraud_alerts",
+                "label": "Fraud Alerts",
+                "points": alerts_points
+            })
+        if compliance_points:
+            chart_series.append({
+                "id": "compliance",
+                "metric": "within_30_days_compliance",
+                "label": "30-Day Compliance",
+                "points": compliance_points
+            })
 
         return {
             "period": "current_month",
+            "updated_at": now.isoformat(),
             "metrics": {
-                "total_claims": len(rejections),
+                "total_claims": len(monthly_rejections),
                 "total_billed": total_billed,
                 "total_rejected": total_rejected,
                 "rejection_rate": rejection_rate,
                 "recovery_rate": recovery_rate,
                 "overdue_letters": overdue,
-                "within_30_days_compliance": sum(1 for r in rejections if r.get('within30Days', False))
+                "within_30_days_compliance": compliance_hits
             },
             "fraud_alerts_count": len(fraud_alerts),
-            "recent_alerts": fraud_alerts
+            "recent_alerts": fraud_alerts,
+            "chart_series": chart_series
         }
     except Exception as exc:
         logger.exception("Dashboard analytics failed", exc_info=exc)

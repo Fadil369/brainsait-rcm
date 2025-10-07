@@ -10,12 +10,14 @@ The BrainSAIT RCM Microsoft Teams Stakeholder Channels app is fully integrated, 
 ## ✅ Completed Components
 
 ### 1. Application Structure
+
 - ✅ **Tab UI** - React-based interface with Fluent Design System
 - ✅ **Bot Service** - Conversational bot with Adaptive Cards
 - ✅ **App Manifest** - Complete Teams app configuration
 - ✅ **Dependencies** - All packages installed and configured
 
 ### 2. Backend Integration
+
 - ✅ **MongoDB Atlas** - Connected to production database
   - Connection String: `mongodb+srv://fadil_db_user:***@cluster0.ozzjwto.mongodb.net/`
   - Database: `brainsait_rcm`
@@ -24,6 +26,7 @@ The BrainSAIT RCM Microsoft Teams Stakeholder Channels app is fully integrated, 
 - ✅ **Authentication** - SSO support with Azure AD
 
 ### 3. Configuration Files
+
 - ✅ **Environment Variables** - All .env files created:
   - `/apps/teams-stakeholder-channels/.env.local`
   - `/apps/api/.env`
@@ -33,6 +36,7 @@ The BrainSAIT RCM Microsoft Teams Stakeholder Channels app is fully integrated, 
 - ✅ **TypeScript Configuration** - Proper typing and compilation settings
 
 ### 4. Features Implemented
+
 - ✅ **Real-time Messaging** - Send and receive messages
 - ✅ **Channel Management** - Create, view, and organize channels
 - ✅ **Team Collaboration** - Multi-stakeholder communication
@@ -41,6 +45,7 @@ The BrainSAIT RCM Microsoft Teams Stakeholder Channels app is fully integrated, 
 - ✅ **Theme Support** - Light, dark, and high contrast modes
 
 ### 5. Security & Compliance
+
 - ✅ **HIPAA Compliance** - Audit logging enabled
 - ✅ **Data Encryption** - In transit and at rest
 - ✅ **Authentication** - Azure AD integration
@@ -48,6 +53,7 @@ The BrainSAIT RCM Microsoft Teams Stakeholder Channels app is fully integrated, 
 - ✅ **Secure Storage** - MongoDB Atlas with TLS
 
 ### 6. Documentation
+
 - ✅ **README.md** - Complete setup and usage guide
 - ✅ **QUICKSTART.md** - Fast deployment instructions
 - ✅ **NEXT_STEPS.md** - Production deployment roadmap
@@ -56,12 +62,14 @@ The BrainSAIT RCM Microsoft Teams Stakeholder Channels app is fully integrated, 
 ## 📦 Repository Status
 
 ### Main Branch
+
 - ✅ **Synced with Remote** - All changes pushed to GitHub
 - ✅ **No Conflicts** - Clean merge from development branch
 - ✅ **Clean Working Tree** - No uncommitted changes
 
 ### File Structure
-```
+
+```text
 apps/teams-stakeholder-channels/
 ├── ✅ appPackage/
 │   ├── manifest.json           # Teams app configuration
@@ -93,7 +101,8 @@ apps/teams-stakeholder-channels/
 ## 🔧 Configuration Summary
 
 ### Database Connection
-```
+
+```text
 Provider: MongoDB Atlas
 Cluster: cluster0.ozzjwto.mongodb.net
 Database: brainsait_rcm
@@ -103,6 +112,7 @@ TLS: Enabled
 ```
 
 ### Collections Structure
+
 ```javascript
 // Teams Collection
 {
@@ -146,6 +156,7 @@ TLS: Enabled
 ## 🚀 Deployment Readiness
 
 ### Prerequisites Completed
+
 - ✅ Node.js 18+ installed
 - ✅ MongoDB Atlas connected
 - ✅ Dependencies installed
@@ -153,6 +164,7 @@ TLS: Enabled
 - ✅ Git repository synced
 
 ### Ready to Deploy
+
 1. **Local Development** - ✅ Ready
 2. **Azure Resources** - ⏳ Needs provisioning
 3. **Teams App Registration** - ⏳ Needs registration
@@ -161,6 +173,7 @@ TLS: Enabled
 ## 📋 Next Steps for Production
 
 ### Step 1: Create App Icons (5 minutes)
+
 ```bash
 # Create two PNG images:
 # 1. color.png (192x192) - Full color app icon
@@ -171,6 +184,7 @@ apps/teams-stakeholder-channels/appPackage/
 ```
 
 ### Step 2: Register with Azure AD (15 minutes)
+
 1. Open [Azure Portal](https://portal.azure.com)
 2. Navigate to Azure Active Directory > App registrations
 3. Create new registration:
@@ -183,6 +197,7 @@ apps/teams-stakeholder-channels/appPackage/
    - `AAD_APP_TENANT_ID`
 
 ### Step 3: Register Bot with Azure Bot Service (15 minutes)
+
 1. In Azure Portal, create "Azure Bot" resource
 2. Configure messaging endpoint: `https://your-bot-domain.azurewebsites.net/api/messages`
 3. Copy values to `.env.local`:
@@ -190,6 +205,7 @@ apps/teams-stakeholder-channels/appPackage/
    - `BOT_PASSWORD` (Client Secret)
 
 ### Step 4: Deploy to Azure (30 minutes)
+
 ```bash
 # Option A: Using M365 Agents Toolkit (Recommended)
 # In VS Code:
@@ -209,6 +225,7 @@ az staticwebapp create --name brainsait-teams-tab --resource-group brainsait-rg
 ```
 
 ### Step 5: Test in Teams (10 minutes)
+
 1. Open Microsoft Teams
 2. Click Apps > Manage your apps
 3. Upload custom app (upload the app package ZIP)
@@ -220,6 +237,7 @@ az staticwebapp create --name brainsait-teams-tab --resource-group brainsait-rg
    - ✅ Channels display properly
 
 ### Step 6: Publish to Teams Store (Optional)
+
 1. Complete [Teams app validation](https://dev.teams.microsoft.com/appvalidation.html)
 2. Submit to [Partner Center](https://partner.microsoft.com/dashboard)
 3. Wait for Microsoft approval (3-5 business days)
@@ -237,6 +255,7 @@ az staticwebapp create --name brainsait-teams-tab --resource-group brainsait-rg
 ## 📊 Performance Optimization
 
 ### Applied Optimizations
+
 - ✅ **Code Splitting** - Webpack configured for optimal bundling
 - ✅ **Lazy Loading** - Components loaded on demand
 - ✅ **Caching** - Redis configured for session caching
@@ -244,6 +263,7 @@ az staticwebapp create --name brainsait-teams-tab --resource-group brainsait-rg
 - ✅ **Compression** - Gzip enabled for API responses
 
 ### Performance Metrics (Expected)
+
 - **Tab Load Time**: < 2 seconds
 - **Bot Response Time**: < 500ms
 - **Message Delivery**: < 1 second
@@ -252,16 +272,19 @@ az staticwebapp create --name brainsait-teams-tab --resource-group brainsait-rg
 ## 🐛 Known Issues & Solutions
 
 ### Issue 1: Bot Dependencies (RESOLVED)
+
 - **Problem**: Deprecated `formidable@1.2.6` dependency
 - **Status**: ✅ Fixed - Non-breaking warning only
 - **Action**: Consider updating to `formidable@v3` in future
 
 ### Issue 2: App Icons (PENDING)
+
 - **Problem**: Placeholder text files instead of PNG images
 - **Status**: ⏳ Needs creation
 - **Action**: Create actual PNG icons before Teams store submission
 
 ### Issue 3: Teams App IDs (PENDING)
+
 - **Problem**: Empty environment variables for Teams/Bot IDs
 - **Status**: ⏳ Needs Azure registration
 - **Action**: Complete Steps 2-3 in "Next Steps for Production"
@@ -269,27 +292,31 @@ az staticwebapp create --name brainsait-teams-tab --resource-group brainsait-rg
 ## 📞 Support & Resources
 
 ### Documentation
+
 - **Main README**: `/apps/teams-stakeholder-channels/README.md`
 - **Quick Start**: `/apps/teams-stakeholder-channels/QUICKSTART.md`
 - **API Docs**: `/API_DOCUMENTATION.md`
 - **Stakeholder Channels**: `/STAKEHOLDER_CHANNELS.md`
 
 ### External Resources
+
 - [Microsoft Teams Developer Docs](https://docs.microsoft.com/microsoftteams/platform/)
 - [M365 Agents Toolkit](https://github.com/OfficeDev/microsoft-365-agents-toolkit)
 - [MongoDB Atlas Docs](https://docs.atlas.mongodb.com/)
 - [Azure Bot Service](https://docs.microsoft.com/azure/bot-service/)
 
 ### Team Contacts
+
 - **Technical Lead**: Fadil369
-- **Repository**: https://github.com/Fadil369/brainsait-rcm.git
-- **Issues**: https://github.com/Fadil369/brainsait-rcm/issues
+- **Repository**: [github.com/Fadil369/brainsait-rcm](https://github.com/Fadil369/brainsait-rcm.git)
+- **Issues**: [github.com/Fadil369/brainsait-rcm/issues](https://github.com/Fadil369/brainsait-rcm/issues)
 
 ## ✨ Summary
 
 The Microsoft Teams Stakeholder Channels app is **production-ready** with all core components completed, tested, and integrated with the MongoDB Atlas database. The application is fully synced with the remote repository, has clean code organization, and follows best practices for security and performance.
 
 **Immediate Actions Required**:
+
 1. Create app icons (color.png, outline.png)
 2. Register Azure AD application
 3. Register Azure Bot Service

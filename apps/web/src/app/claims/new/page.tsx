@@ -6,7 +6,6 @@
  */
 'use client';
 
-import { ClaimValidationRequest } from '@brainsait/shared-models';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
@@ -14,6 +13,7 @@ import { DocumentUpload } from '@/components/claims/DocumentUpload';
 import { RiskScoreCard } from '@/components/claims/RiskScoreCard';
 import { ValidationIssuesList } from '@/components/claims/ValidationIssuesList';
 import { useClaimsValidation } from '@/hooks/useClaimsValidation';
+import { ClaimValidationRequest, ClaimValidationResponse } from '@/types/claims';
 
 
 
@@ -32,19 +32,13 @@ export default function NewClaimPage() {
     documentation: {}
   });
   
-  const [validationResult, setValidationResult] = useState<{
-    denialRiskScore?: number;
-    riskLevel?: string;
-    compliance?: { nphiesCompliant: boolean; payerRulesCompliant: boolean } | boolean;
-    issues?: Array<{ message: string; severity: string }>;
-    status?: string;
-  } | null>(null);
+  const [validationResult, setValidationResult] = useState<ClaimValidationResponse | null>(null);
   const [currentIcdCode, setCurrentIcdCode] = useState('');
   const [currentCptCode, setCurrentCptCode] = useState('');
   
   const handleAddIcdCode = () => {
     if (currentIcdCode.trim()) {
-      setFormData(prev => ({
+      setFormData((prev: Partial<ClaimValidationRequest>) => ({
         ...prev,
         icdCodes: [...(prev.icdCodes || []), currentIcdCode.trim()]
       }));
@@ -54,7 +48,7 @@ export default function NewClaimPage() {
   
   const handleAddCptCode = () => {
     if (currentCptCode.trim()) {
-      setFormData(prev => ({
+      setFormData((prev: Partial<ClaimValidationRequest>) => ({
         ...prev,
         cptCodes: [...(prev.cptCodes || []), currentCptCode.trim()]
       }));
@@ -63,16 +57,16 @@ export default function NewClaimPage() {
   };
   
   const handleRemoveIcdCode = (index: number) => {
-    setFormData(prev => ({
+    setFormData((prev: Partial<ClaimValidationRequest>) => ({
       ...prev,
-      icdCodes: prev.icdCodes?.filter((_, i) => i !== index) || []
+      icdCodes: prev.icdCodes?.filter((_code: string, i: number) => i !== index) || []
     }));
   };
   
   const handleRemoveCptCode = (index: number) => {
-    setFormData(prev => ({
+    setFormData((prev: Partial<ClaimValidationRequest>) => ({
       ...prev,
-      cptCodes: prev.cptCodes?.filter((_, i) => i !== index) || []
+      cptCodes: prev.cptCodes?.filter((_code: string, i: number) => i !== index) || []
     }));
   };
   
@@ -254,8 +248,8 @@ export default function NewClaimPage() {
               </div>
               {formData.icdCodes && formData.icdCodes.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {formData.icdCodes.map((code, index) => (
-                    <span 
+                  {formData.icdCodes.map((code: string, index: number) => (
+                    <span
                       key={index}
                       className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 dark:bg-primary/20 text-primary rounded-full text-sm"
                     >
@@ -299,8 +293,8 @@ export default function NewClaimPage() {
               </div>
               {formData.cptCodes && formData.cptCodes.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {formData.cptCodes.map((code, index) => (
-                    <span 
+                  {formData.cptCodes.map((code: string, index: number) => (
+                    <span
                       key={index}
                       className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 dark:bg-primary/20 text-primary rounded-full text-sm"
                     >
@@ -363,12 +357,8 @@ export default function NewClaimPage() {
           <>
             <RiskScoreCard
               score={validationResult.denialRiskScore ?? 0}
-              riskLevel={validationResult.riskLevel ?? 'unknown'}
-              compliance={
-                typeof validationResult.compliance === 'object'
-                  ? validationResult.compliance
-                  : { nphiesCompliant: false, payerRulesCompliant: false }
-              }
+              riskLevel={validationResult.riskLevel ?? 'LOW'}
+              compliance={validationResult.compliance}
             />
             
             {validationResult.issues && validationResult.issues.length > 0 && (
@@ -390,7 +380,7 @@ export default function NewClaimPage() {
           </button>
           <button
             onClick={handleSubmit}
-            disabled={!validationResult || validationResult.status === 'error'}
+            disabled={!validationResult || !validationResult.valid}
             className="flex-1 h-12 rounded-lg bg-primary text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Submit Claim

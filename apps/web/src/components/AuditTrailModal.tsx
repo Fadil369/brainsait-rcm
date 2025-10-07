@@ -19,6 +19,9 @@ interface AuditLog {
   action?: string;
   user?: string;
   details?: string;
+  event_type?: string;
+  user_id?: string;
+  description?: string;
   [key: string]: unknown;
 }
 
@@ -28,6 +31,7 @@ interface SuspiciousActivity {
   severity?: string;
   description?: string;
   timestamp?: string;
+  user_id?: string;
   [key: string]: unknown;
 }
 
@@ -154,14 +158,14 @@ export function AuditTrailModal({ isOpen, onClose, locale }: AuditTrailModalProp
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div>
-                      {getEventTypeBadge(log.event_type)}
+                      {getEventTypeBadge(log.event_type || 'UNKNOWN')}
                       <span className="ml-2 text-gray-400 text-sm">
-                        {new Date(log.timestamp).toLocaleString(locale === 'ar' ? 'ar-SA' : 'en-US')}
+                        {log.timestamp ? new Date(log.timestamp).toLocaleString(locale === 'ar' ? 'ar-SA' : 'en-US') : 'N/A'}
                       </span>
                     </div>
-                    <span className="text-xs text-gray-500">{log.user_id}</span>
+                    <span className="text-xs text-gray-500">{log.user_id || 'Unknown'}</span>
                   </div>
-                  <p className="text-sm text-gray-300">{log.description || log.event_type}</p>
+                  <p className="text-sm text-gray-300">{log.description || log.event_type || 'No description'}</p>
                   {log.details && (
                     <p className="text-xs text-gray-500 mt-1">{JSON.stringify(log.details)}</p>
                   )}
@@ -189,16 +193,16 @@ export function AuditTrailModal({ isOpen, onClose, locale }: AuditTrailModalProp
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div>
-                      <span className="text-red-400 font-semibold">⚠️ {activity.type}</span>
+                      <span className="text-red-400 font-semibold">⚠️ {activity.type || 'Unknown'}</span>
                       <p className="text-sm text-gray-400 mt-1">
-                        {new Date(activity.timestamp).toLocaleString(locale === 'ar' ? 'ar-SA' : 'en-US')}
+                        {activity.timestamp ? new Date(activity.timestamp).toLocaleString(locale === 'ar' ? 'ar-SA' : 'en-US') : 'N/A'}
                       </p>
                     </div>
                     <span className="px-2 py-1 bg-red-500/20 text-red-300 text-xs rounded">
                       {locale === 'ar' ? 'خطر عالي' : 'High Risk'}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-300">{activity.description}</p>
+                  <p className="text-sm text-gray-300">{activity.description || 'No description'}</p>
                   {activity.user_id && (
                     <p className="text-xs text-gray-500 mt-2">
                       {locale === 'ar' ? 'المستخدم' : 'User'}: {activity.user_id}

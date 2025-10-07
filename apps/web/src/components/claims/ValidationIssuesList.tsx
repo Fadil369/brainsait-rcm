@@ -6,7 +6,7 @@
  */
 'use client';
 
-import { ValidationIssue, IssueSeverity } from '@brainsait/shared-models';
+import { ValidationIssue, IssueSeverity } from '@/types/claims';
 
 interface ValidationIssuesListProps {
   issues: ValidationIssue[];

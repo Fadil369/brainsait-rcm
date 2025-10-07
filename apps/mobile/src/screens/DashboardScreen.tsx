@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { Card, Title, Paragraph, ActivityIndicator } from 'react-native-paper';
+
 import { apiService } from '../services/api';
 
 export default function DashboardScreen() {

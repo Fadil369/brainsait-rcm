@@ -4,7 +4,7 @@ Pydantic models for authentication
 
 from datetime import datetime
 from typing import Optional, Literal
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, FieldValidationInfo, field_validator
 import re
 
 
@@ -17,7 +17,7 @@ class UserBase(BaseModel):
 
     @field_validator('username')
     @classmethod
-    def validate_username(cls, v):
+    def validate_username(cls, v: Optional[str]) -> Optional[str]:
         if v and not re.match(r'^[a-zA-Z0-9_-]+$', v):
             raise ValueError(
                 'Username must contain only alphanumeric characters, '
@@ -33,7 +33,7 @@ class UserCreate(UserBase):
     
     @field_validator('password')
     @classmethod
-    def validate_password(cls, v, info):
+    def validate_password(cls, v: Optional[str], info: FieldValidationInfo) -> Optional[str]:
         if info.data.get('auth_method') == 'password' and not v:
             raise ValueError('Password is required for password-based registration')
         if v:
@@ -109,7 +109,7 @@ class PasswordChange(BaseModel):
     
     @field_validator('new_password')
     @classmethod
-    def validate_new_password(cls, v):
+    def validate_new_password(cls, v: str) -> str:
         # OWASP password guidelines
         if len(v) < 8:
             raise ValueError('Password must be at least 8 characters long')
@@ -139,7 +139,7 @@ class SuperAdminInitialize(BaseModel):
     
     @field_validator('password')
     @classmethod
-    def validate_password(cls, v):
+    def validate_password(cls, v: str) -> str:
         # OWASP password guidelines
         if len(v) < 8:
             raise ValueError('Password must be at least 8 characters long')

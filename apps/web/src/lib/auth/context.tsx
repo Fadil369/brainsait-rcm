@@ -65,15 +65,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshAuth]);
 
   const login = async (identifier: string, password: string) => {
-    try {
-      const tokens = await authAPI.login({ identifier, password });
-      saveTokens(tokens);
-      const userData = await authAPI.getCurrentUser();
-      setUser(userData);
-      router.push('/dashboard');
-    } catch (error) {
-      throw error;
-    }
+    const tokens = await authAPI.login({ identifier, password });
+    saveTokens(tokens);
+    const userData = await authAPI.getCurrentUser();
+    setUser(userData);
+    router.push('/dashboard');
   };
 
   const logout = async () => {

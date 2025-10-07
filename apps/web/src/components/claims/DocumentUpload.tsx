@@ -75,6 +75,14 @@ export function DocumentUpload({ onUpload }: DocumentUploadProps) {
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            fileInputRef.current?.click();
+          }
+        }}
         className={`
           border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all
           ${isDragging 

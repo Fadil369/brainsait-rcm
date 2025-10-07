@@ -1,8 +1,10 @@
 'use client';
 
 import { forwardRef } from 'react';
-import { cn } from '@/lib/utils';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
+
+import { useLocaleDirection } from '@/hooks/useLocaleDirection';
+import { cn } from '@/lib/utils';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -13,13 +15,18 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   fullWidth?: boolean;
   loading?: boolean;
   icon?: ReactNode;
+  locale?: string;
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: 'bg-gradient-to-r from-brainsait-cyan to-brainsait-blue text-white shadow-glow hover:shadow-neon',
-  secondary: 'bg-white/10 text-white border border-white/20 hover:bg-white/20',
-  ghost: 'bg-transparent text-white hover:bg-white/10 border border-transparent',
-  danger: 'bg-danger/80 text-white hover:bg-danger'
+  primary:
+    'bg-gradient-to-r from-brand-orange/90 via-brand-orange to-brand-orange/80 text-white shadow-glow hover:shadow-neon focus-visible:ring-brand-orange/40',
+  secondary:
+    'bg-secondary/80 text-secondary-foreground border border-white/10 hover:bg-secondary/60 focus-visible:ring-secondary/40',
+  ghost:
+    'bg-transparent text-foreground hover:bg-foreground/5 border border-transparent focus-visible:ring-foreground/15',
+  danger:
+    'bg-danger/90 text-white hover:bg-danger focus-visible:ring-danger/40'
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
@@ -37,6 +44,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       fullWidth,
       loading = false,
       icon,
+      locale,
       children,
       disabled,
       ...props
@@ -44,16 +52,18 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) => {
     const isDisabled = disabled || loading;
+    const { typographyClass } = useLocaleDirection(locale);
 
     return (
       <button
         ref={ref}
         className={cn(
-          'relative inline-flex items-center justify-center rounded-xl font-semibold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 disabled:cursor-not-allowed disabled:opacity-60 gap-2',
+          'relative inline-flex items-center justify-center rounded-xl font-semibold transition-all duration-200 focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60 gap-2 shadow-sm',
           variantStyles[variant],
           sizeStyles[size],
           fullWidth ? 'w-full' : undefined,
           loading ? 'cursor-progress' : undefined,
+          typographyClass,
           className
         )}
         disabled={isDisabled}

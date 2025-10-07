@@ -14,7 +14,10 @@
     "ecmaFeatures": {
       "jsx": true
     },
-    "project": "./tsconfig.json"
+    "project": [
+      "./tsconfig.json",
+      "./apps/mobile/tsconfig.json"
+    ]
   },
   "plugins": [
     "@typescript-eslint",
@@ -74,6 +77,9 @@
   "settings": {
     "react": {
       "version": "detect"
+    },
+    "next": {
+      "rootDir": ["apps/web"]
     },
     "import/resolver": {
       "typescript": {}

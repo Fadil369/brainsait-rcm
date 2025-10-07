@@ -1,9 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { Modal } from './Modal';
-import { useFraudDetection } from '@/lib/hooks';
 import { motion } from 'framer-motion';
+import { useState } from 'react';
+
+import { useFraudDetection } from '@/lib/hooks';
+import type { FraudDetectionClaim, FraudDetectionInput } from '@/types/api';
+
+import { Modal } from './Modal';
 
 interface FraudDetectionModalProps {
   isOpen: boolean;
@@ -19,7 +22,7 @@ export function FraudDetectionModal({ isOpen, onClose, locale }: FraudDetectionM
     const ids = claimIds.split(',').map(id => id.trim()).filter(Boolean);
 
     // Mock claims data - in real app, fetch from API
-    const claims = ids.map(id => ({
+    const claims: FraudDetectionInput[] = ids.map(id => ({
       claim_id: id,
       provider_id: `provider_${Math.random().toString(36).substr(2, 9)}`,
       patient_id: `patient_${Math.random().toString(36).substr(2, 9)}`,
@@ -150,35 +153,39 @@ export function FraudDetectionModal({ isOpen, onClose, locale }: FraudDetectionM
                   {locale === 'ar' ? '⚠️ مطالبات مشبوهة' : '⚠️ Suspicious Claims'}
                 </h3>
                 <div className="space-y-3">
-                  {result.suspicious_claims.map((claim: any, index: number) => (
-                    <div key={index} className="glass-morphism p-4 rounded-lg">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <span className="text-white font-semibold">{claim.claim_id}</span>
-                          <p className="text-sm text-gray-400 mt-1">
-                            {locale === 'ar' ? 'نقاط الخطر' : 'Risk Score'}:
-                            <span className={`ml-2 font-bold ${
-                              claim.risk_score > 0.7 ? 'text-red-400' :
-                              claim.risk_score > 0.4 ? 'text-orange-400' :
-                              'text-yellow-400'
-                            }`}>
-                              {(claim.risk_score * 100).toFixed(0)}%
-                            </span>
+                  {result.suspicious_claims.map((claim: FraudDetectionClaim, index: number) => {
+                    const riskScore = claim.risk_score ?? 0;
+                    const riskClass =
+                      riskScore > 0.7 ? 'text-red-400' :
+                      riskScore > 0.4 ? 'text-orange-400' :
+                      'text-yellow-400';
+
+                    return (
+                      <div key={claim.claim_id ?? index} className="glass-morphism p-4 rounded-lg">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <span className="text-white font-semibold">{claim.claim_id}</span>
+                            <p className="text-sm text-gray-400 mt-1">
+                              {locale === 'ar' ? 'نقاط الخطر' : 'Risk Score'}:
+                              <span className={`ml-2 font-bold ${riskClass}`}>
+                                {(riskScore * 100).toFixed(0)}%
+                              </span>
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {claim.fraud_types?.map((type: string, i: number) => (
+                              <div key={i}>{getFraudTypeBadge(type)}</div>
+                            ))}
+                          </div>
+                        </div>
+                        {claim.details && (
+                          <p className="text-sm text-gray-300 mt-2">
+                            {claim.details}
                           </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {claim.fraud_types?.map((type: string, i: number) => (
-                            <div key={i}>{getFraudTypeBadge(type)}</div>
-                          ))}
-                        </div>
+                        )}
                       </div>
-                      {claim.details && (
-                        <p className="text-sm text-gray-300 mt-2">
-                          {claim.details}
-                        </p>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

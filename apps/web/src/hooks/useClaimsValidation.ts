@@ -7,7 +7,8 @@
 'use client';
 
 import { useState } from 'react';
-import { ClaimValidationRequest, ClaimValidationResponse } from '@brainsait/shared-models';
+
+import { ClaimValidationRequest, ClaimValidationResponse } from '@/types/claims';
 
 interface UseClaimsValidationReturn {
   validateClaim: (request: ClaimValidationRequest) => Promise<ClaimValidationResponse>;

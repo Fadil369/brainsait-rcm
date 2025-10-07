@@ -1,11 +1,16 @@
 import type { Metadata } from 'next'
-import { Inter, Cairo } from 'next/font/google'
+import { Inter, Manrope, Noto_Sans_Arabic } from 'next/font/google'
+
 import './globals.css'
+import { AppShell } from '@/components/layout/AppShell'
+import { DashboardDataProvider } from '@/providers/DashboardDataProvider'
+import { ThemeProvider } from '@/providers/ThemeProvider'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
-const cairo = Cairo({
+const manrope = Manrope({ subsets: ['latin'], variable: '--font-manrope', weight: ['400', '500', '600', '700'] })
+const notoSansArabic = Noto_Sans_Arabic({
   subsets: ['arabic'],
-  variable: '--font-cairo',
+  variable: '--font-arabic',
   weight: ['400', '500', '600', '700']
 })
 
@@ -21,9 +26,13 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} ${cairo.variable} font-sans antialiased`}>
-        {children}
+    <html lang="en" data-theme="dark" suppressHydrationWarning>
+      <body className={`${inter.variable} ${manrope.variable} ${notoSansArabic.variable} font-sans antialiased`}>
+        <ThemeProvider locale="en" defaultTheme="dark">
+          <DashboardDataProvider>
+            <AppShell>{children}</AppShell>
+          </DashboardDataProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

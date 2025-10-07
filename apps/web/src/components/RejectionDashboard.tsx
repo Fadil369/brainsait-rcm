@@ -1,20 +1,41 @@
 'use client';
 
-import { useMemo, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Locale, UserRole } from '@brainsait/rejection-tracker';
-import { useDashboardData, useTrends, useHealthCheck } from '@/lib/hooks';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef, useState, ChangeEvent, ReactNode } from 'react';
+
+import { AgentOverlay } from '@/components/AgentOverlay';
+import { useHealthCheck } from '@/lib/hooks';
 import { cn } from '@/lib/utils';
-import { CreateRejectionModal } from './CreateRejectionModal';
-import { CreateAppealModal } from './CreateAppealModal';
-import { FraudDetectionModal } from './FraudDetectionModal';
-import { PredictiveAnalyticsModal } from './PredictiveAnalyticsModal';
-import { WhatsAppModal } from './WhatsAppModal';
-import { ComplianceLetterModal } from './ComplianceLetterModal';
-import { TeamsNotificationModal } from './TeamsNotificationModal';
-import { NPHIESModal } from './NPHIESModal';
+import { useDashboardContext } from '@/providers/DashboardDataProvider';
+import type {
+  DashboardAccountSummary,
+  DashboardComplianceLetter,
+  DashboardFraudAlert,
+  DashboardMetricSeriesPoint,
+  DashboardRejectionRecord,
+  HealthStatus,
+} from '@/types/api';
+import { buildSparklineGeometry, filterSeriesByRange, normalizeChartSeries } from '@/utils/dashboardSeries';
+import type { SparklineGeometry } from '@/utils/dashboardSeries';
+
 import { AuditTrailModal } from './AuditTrailModal';
+import { CommandPalette } from './CommandPalette';
+import { ComplianceLetterModal } from './ComplianceLetterModal';
+import { CreateAppealModal } from './CreateAppealModal';
+import { CreateRejectionModal } from './CreateRejectionModal';
+import { FraudDetectionModal } from './FraudDetectionModal';
+import { NPHIESModal } from './NPHIESModal';
+import { PredictiveAnalyticsModal } from './PredictiveAnalyticsModal';
+import { TeamsNotificationModal } from './TeamsNotificationModal';
+import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/Card';
+import { Select } from './ui/Select';
+import { Tabs, TabsList, TabsTrigger } from './ui/Tabs';
+import { ThemeToggle } from './ui/ThemeToggle';
+import { WhatsAppModal } from './WhatsAppModal';
 
 interface DashboardProps {
   userRole: UserRole;
@@ -23,12 +44,30 @@ interface DashboardProps {
   onLocaleChange?: (locale: Locale) => void;
 }
 
+type LocalizedText = { en: string; ar: string };
+
 interface TrendPoint {
   date: string;
   count: number;
-  rejectedAmount: number;
-  recoveredCount: number;
+  rejectedAmount?: number;
+  recoveredCount?: number;
+  recoveryRate?: number;
+  complianceRate?: number;
+  alertsCount?: number;
 }
+
+type NavItem = {
+  id: string;
+  icon: string;
+  label: LocalizedText;
+};
+
+type AccountOption = {
+  id: string;
+  name: string;
+  region?: string | null;
+  code?: string | null;
+};
 
 interface NormalizedRejection {
   id: string;
@@ -49,20 +88,40 @@ interface NormalizedLetter {
   recipient: string;
   dueDate?: string;
   daysOverdue?: number;
-  subject?: { ar?: string; en?: string };
+  subject?: string | LocalizedText;
   totalAmount?: number;
-  claimReferences?: string[];
+  claimReferences: string[];
 }
 
-const NAV_ITEMS = [
-  { id: 'overview', icon: '🧭', label: { en: 'Overview', ar: 'نظرة عامة' } },
-  { id: 'claims', icon: '📑', label: { en: 'Claims', ar: 'المطالبات' } },
-  { id: 'compliance', icon: '📋', label: { en: 'Compliance', ar: 'الالتزام' } },
-  { id: 'ai-insights', icon: '🧠', label: { en: 'AI Insights', ar: 'تحليلات الذكاء الاصطناعي' } },
-  { id: 'audit', icon: '🛡️', label: { en: 'Audit Trail', ar: 'سجل المراجعة' } },
+const NAV_ITEMS: NavItem[] = [
+  {
+    id: 'overview',
+    icon: '📊',
+    label: { en: 'Overview', ar: 'نظرة عامة' },
+  },
+  {
+    id: 'claims',
+    icon: '📁',
+    label: { en: 'Claim Status', ar: 'حالة المطالبات' },
+  },
+  {
+    id: 'compliance',
+    icon: '⚖️',
+    label: { en: 'Compliance', ar: 'الامتثال' },
+  },
+  {
+    id: 'ai-insights',
+    icon: '🤖',
+    label: { en: 'AI Insights', ar: 'تحليلات ذكية' },
+  },
+  {
+    id: 'audit',
+    icon: '🛡️',
+    label: { en: 'Audit Trail', ar: 'سجل المراجعة' },
+  },
 ];
 
-const ACTIONS = [
+const ACTIONS: Array<{ id: string; icon: string; label: LocalizedText }> = [
   { id: 'rejection', icon: '➕', label: { en: 'Add Rejection', ar: 'إضافة مرفوض' } },
   { id: 'appeal', icon: '📝', label: { en: 'Create Appeal', ar: 'إنشاء استئناف' } },
   { id: 'fraud', icon: '🔍', label: { en: 'Fraud Detection', ar: 'كشف الاحتيال' } },
@@ -75,9 +134,10 @@ const ACTIONS = [
 ];
 
 export function RejectionDashboard({ userRole, locale, userName, onLocaleChange }: Readonly<DashboardProps>) {
-  const { data, loading, error, refetch } = useDashboardData();
-  const { trends, loading: trendsLoading } = useTrends(60);
+  const router = useRouter();
+  const { data, loading, error, refetch } = useDashboardContext();
   const { isHealthy, health } = useHealthCheck();
+  const seriesLoading = loading;
 
   const [showCreateRejection, setShowCreateRejection] = useState(false);
   const [showCreateAppeal, setShowCreateAppeal] = useState(false);
@@ -89,7 +149,66 @@ export function RejectionDashboard({ userRole, locale, userName, onLocaleChange 
   const [showNPHIES, setShowNPHIES] = useState(false);
   const [showAuditTrail, setShowAuditTrail] = useState(false);
   const [showMobileActions, setShowMobileActions] = useState(false);
+  const [showMobileNav, setShowMobileNav] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showAgentOverlay, setShowAgentOverlay] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
   const [activeNav, setActiveNav] = useState<string>('overview');
+
+  const accountOptions = useMemo<AccountOption[]>(() => {
+    const accounts = data?.analytics?.accounts;
+    const analyticsAccounts: DashboardAccountSummary[] = Array.isArray(accounts)
+      ? accounts
+      : [];
+
+    if (analyticsAccounts.length > 0) {
+      return analyticsAccounts.map((account, index) => ({
+        id: account.id ?? account.account_id ?? `account-${index}`,
+        name: account.name ?? account.label ?? account.code ?? `Account ${index + 1}`,
+        region: account.region ?? account.location ?? account.code ?? null,
+        code: account.code ?? account.shortcode ?? null,
+      }));
+    }
+
+    return [
+      {
+        id: 'brainsait-hq',
+        name: locale === 'ar' ? 'مركز BrainSAIT الرئيسي' : 'BrainSAIT Headquarters',
+        region: locale === 'ar' ? 'الرياض' : 'Riyadh',
+        code: 'HQ',
+      },
+      {
+        id: 'brainsait-network',
+        name: locale === 'ar' ? 'شبكة BrainSAIT للرعاية' : 'BrainSAIT Care Network',
+        region: locale === 'ar' ? 'الشبكة الإقليمية' : 'Regional Network',
+        code: 'NET',
+      },
+    ];
+  }, [data?.analytics?.accounts, locale]);
+
+  useEffect(() => {
+    if (accountOptions.length === 0) {
+      setSelectedAccount(null);
+      return;
+    }
+
+    const defaultAccount = accountOptions[0]?.id ?? null;
+    if (!selectedAccount || !accountOptions.some((option) => option.id === selectedAccount)) {
+      setSelectedAccount(defaultAccount);
+    }
+  }, [accountOptions, selectedAccount]);
+
+  const selectedAccountOption = useMemo(() => {
+    return accountOptions.find((option) => option.id === selectedAccount) ?? null;
+  }, [accountOptions, selectedAccount]);
+
+  const toggleMobileNav = useCallback(() => {
+    setShowMobileNav((prev) => !prev);
+  }, []);
+
+  const closeMobileNav = useCallback(() => {
+    setShowMobileNav(false);
+  }, []);
 
   const overviewRef = useRef<HTMLElement>(null);
   const claimsRef = useRef<HTMLElement>(null);
@@ -110,8 +229,9 @@ export function RejectionDashboard({ userRole, locale, userName, onLocaleChange 
     if (target) {
       target.scrollIntoView({ behavior: 'smooth', block: 'start' });
       setActiveNav(sectionId);
+      closeMobileNav();
     }
-  }, []);
+  }, [closeMobileNav]);
 
   const actionHandlers = useMemo(
     () => ({
@@ -124,6 +244,9 @@ export function RejectionDashboard({ userRole, locale, userName, onLocaleChange 
       nphies: () => setShowNPHIES(true),
       whatsapp: () => setShowWhatsApp(true),
       audit: () => setShowAuditTrail(true),
+      'phase-two-app-store': () => router.push('/app-store'),
+      'phase-two-academy': () => router.push('/academy'),
+      'phase-two-partners': () => router.push('/partners'),
     }),
     [
       setShowCreateRejection,
@@ -135,6 +258,7 @@ export function RejectionDashboard({ userRole, locale, userName, onLocaleChange 
       setShowNPHIES,
       setShowWhatsApp,
       setShowAuditTrail,
+      router,
     ]
   );
 
@@ -193,6 +317,22 @@ export function RejectionDashboard({ userRole, locale, userName, onLocaleChange 
     };
   }, []);
 
+  useEffect(() => {
+    const handleGlobalShortcuts = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setShowCommandPalette(true);
+      }
+
+      if (event.key === 'Escape') {
+        setShowMobileNav(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalShortcuts);
+    return () => window.removeEventListener('keydown', handleGlobalShortcuts);
+  }, []);
+
   const metrics = data?.analytics?.metrics;
   const totalClaims = metrics?.total_claims ?? data?.rejections?.length ?? 0;
   const rejectionRate = metrics?.rejection_rate ?? 0;
@@ -211,6 +351,137 @@ export function RejectionDashboard({ userRole, locale, userName, onLocaleChange 
     overdueLetters,
     complianceWithin30,
   } as const;
+
+  const quickMetrics = useMemo(
+    () => [
+      {
+        id: 'claims',
+        label: locale === 'ar' ? 'مطالبات هذا الشهر' : 'Monthly claims',
+        value: totalClaims.toLocaleString(locale === 'ar' ? 'ar' : 'en-US'),
+        helper: locale === 'ar' ? 'إجمالي المطالبات المسجلة' : 'Total claims logged',
+      },
+      {
+        id: 'rejection-rate',
+        label: locale === 'ar' ? 'نسبة الرفض' : 'Rejection rate',
+        value: `${(rejectionRate * 100).toFixed(1)}%`,
+        helper: locale === 'ar' ? 'مقارنة بالهدف 8%' : 'Target ≤ 8%',
+      },
+      {
+        id: 'recovery-rate',
+        label: locale === 'ar' ? 'نسبة الاسترداد' : 'Recovery rate',
+        value: `${(recoveryRate * 100).toFixed(1)}%`,
+        helper: locale === 'ar' ? 'حملات الاسترداد الفعّالة' : 'Effective recovery campaigns',
+      },
+      {
+        id: 'overdue',
+        label: locale === 'ar' ? 'خطابات متأخرة' : 'Overdue letters',
+        value: overdueLetters.toString(),
+        helper:
+          overdueLetters === 0
+            ? locale === 'ar'
+              ? 'لا يوجد متأخرات'
+              : 'All on schedule'
+            : locale === 'ar'
+              ? 'بحاجة إلى متابعة عاجلة'
+              : 'Needs urgent follow-up',
+      },
+    ],
+    [locale, overdueLetters, rejectionRate, recoveryRate, totalClaims]
+  );
+
+  const commandItems = useMemo(
+    () => {
+      const translateText = (en: string, ar: string) => (locale === 'ar' ? ar : en);
+
+      return [
+        {
+          id: 'goto-overview',
+          title: translateText('Go to overview', 'الانتقال إلى النظرة العامة'),
+          icon: '📊',
+          group: translateText('Navigate', 'التنقل'),
+          action: () => handleNavClick('overview'),
+        },
+        {
+          id: 'goto-claims',
+          title: translateText('Go to claims performance', 'الانتقال إلى أداء المطالبات'),
+          icon: '📁',
+          group: translateText('Navigate', 'التنقل'),
+          action: () => handleNavClick('claims'),
+        },
+        {
+          id: 'goto-compliance',
+          title: translateText('Go to compliance', 'الانتقال إلى الامتثال'),
+          icon: '⚖️',
+          group: translateText('Navigate', 'التنقل'),
+          action: () => handleNavClick('compliance'),
+        },
+        {
+          id: 'goto-insights',
+          title: translateText('Go to AI insights', 'الانتقال إلى رؤى الذكاء الاصطناعي'),
+          icon: '🤖',
+          group: translateText('Navigate', 'التنقل'),
+          action: () => handleNavClick('ai-insights'),
+        },
+        {
+          id: 'open-rejection',
+          title: translateText('Log a new rejection', 'تسجيل مطالبة مرفوضة جديدة'),
+          icon: '➕',
+          group: translateText('Workflows', 'التدفقات'),
+          action: () => triggerAction('rejection'),
+        },
+        {
+          id: 'open-appeal',
+          title: translateText('Create appeal draft', 'إنشاء مسودة استئناف'),
+          icon: '📝',
+          group: translateText('Workflows', 'التدفقات'),
+          action: () => triggerAction('appeal'),
+        },
+        {
+          id: 'open-fraud',
+          title: translateText('Run fraud analysis', 'تشغيل تحليل الاحتيال'),
+          icon: '🔍',
+          group: translateText('Workflows', 'التدفقات'),
+          action: () => triggerAction('fraud'),
+        },
+        {
+          id: 'open-agent',
+          title: translateText('Ask BrainSAIT agent', 'اسأل مساعد BrainSAIT'),
+          icon: '🧠',
+          group: translateText('Assistant', 'المساعد'),
+          action: () => setShowAgentOverlay(true),
+        },
+        {
+          id: 'mobile-actions',
+          title: translateText('Show quick mobile actions', 'عرض الإجراءات السريعة للموبايل'),
+          icon: '📱',
+          group: translateText('Assistant', 'المساعد'),
+          action: () => setShowMobileActions(true),
+        },
+        {
+          id: 'open-app-store',
+          title: translateText('Open App Store preview', 'فتح معاينة متجر التطبيقات'),
+          icon: '🛍️',
+          group: translateText('Phase Two', 'المرحلة الثانية'),
+          action: () => router.push('/app-store'),
+        },
+        {
+          id: 'open-academy',
+          title: translateText('Open Training Academy', 'فتح أكاديمية التدريب'),
+          icon: '🎓',
+          group: translateText('Phase Two', 'المرحلة الثانية'),
+          action: () => router.push('/academy'),
+        },
+        {
+          id: 'open-partners',
+          title: translateText('Open Partner Hub', 'فتح مركز الشركاء'),
+          icon: '🤝',
+          group: translateText('Phase Two', 'المرحلة الثانية'),
+          action: () => router.push('/partners'),
+        },
+      ];
+    },
+    [handleNavClick, locale, router, triggerAction, setShowAgentOverlay, setShowMobileActions]
+  );
 
   const toggleMobileActions = useCallback(() => {
     setShowMobileActions((prev) => !prev);
@@ -231,8 +502,11 @@ export function RejectionDashboard({ userRole, locale, userName, onLocaleChange 
   }, [data?.letters]);
 
   const fraudAlerts = useMemo(() => {
-    return (data?.analytics?.recent_alerts ?? []).map((alert: any) => ({
-      id: alert._id ?? alert.id ?? alert.reference ?? Math.random().toString(36).slice(2),
+    const latestAlerts = data?.analytics?.recent_alerts;
+    const alerts: DashboardFraudAlert[] = Array.isArray(latestAlerts) ? latestAlerts : [];
+
+    return alerts.map((alert) => ({
+      id: stringifyId(alert),
       description: alert.description ?? alert.details ?? '—',
       severity: alert.severity ?? 'MEDIUM',
       detectedAt: alert.detected_at ?? alert.detectedAt ?? alert.created_at ?? null,
@@ -240,30 +514,67 @@ export function RejectionDashboard({ userRole, locale, userName, onLocaleChange 
     })).slice(0, 5);
   }, [data?.analytics?.recent_alerts]);
 
+  const {
+    claims: claimsSeries,
+    recovery: recoverySeries,
+    compliance: complianceSeries,
+    alerts: alertsSeries,
+  } = useMemo(() => {
+    const normalized = normalizeChartSeries(
+      data?.analytics?.chart_series ?? data?.analytics?.chartSeries
+    );
+
+    const pickSeries = (...keys: string[]) => {
+      for (const key of keys) {
+        const candidate = normalized[key];
+        if (candidate && candidate.length > 0) {
+          return candidate;
+        }
+      }
+      const fallback = keys[0];
+      return fallback ? normalized[fallback] ?? [] : [];
+    };
+
+    return {
+      claims: filterSeriesByRange(pickSeries('claims', 'total_claims', 'rejections', 'denials'), '90d'),
+      recovery: filterSeriesByRange(pickSeries('recovery_rate', 'recovery'), '90d'),
+      compliance: filterSeriesByRange(
+        pickSeries('within_30_days_compliance', 'compliance', 'compliance_rate'),
+        '90d'
+      ),
+      alerts: filterSeriesByRange(pickSeries('fraud_alerts', 'alerts'), '90d'),
+    };
+  }, [data?.analytics?.chart_series, data?.analytics?.chartSeries]);
+
+  const claimsWindow = useMemo(() => claimsSeries.slice(-14), [claimsSeries]);
+
+  const sparkline = useMemo<SparklineGeometry | null>(
+    () => buildSparklineGeometry(claimsWindow),
+    [claimsWindow]
+  );
+
   const trendPoints = useMemo<TrendPoint[]>(() => {
-    if (!trends?.daily_trends) return [];
-    return Object.entries(trends.daily_trends)
-      .map(([dateKey, stats]) => {
-        const details = (stats ?? {}) as {
-          count?: number;
-          rejected_amount?: number;
-          rejectedAmount?: number;
-          recovered_count?: number;
-          recoveredCount?: number;
-        };
+    if (claimsWindow.length === 0) {
+      return [];
+    }
 
-        return {
-          date: dateKey,
-          count: details.count ?? 0,
-          rejectedAmount: details.rejected_amount ?? details.rejectedAmount ?? 0,
-          recoveredCount: details.recovered_count ?? details.recoveredCount ?? 0,
-        };
-      })
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .slice(-14);
-  }, [trends?.daily_trends]);
+    const recoveryLookup = createSeriesLookup(recoverySeries);
+    const complianceLookup = createSeriesLookup(complianceSeries);
+    const alertsLookup = createSeriesLookup(alertsSeries);
 
-  const sparklinePath = useMemo(() => buildSparklinePath(trendPoints), [trendPoints]);
+    return claimsWindow.map((point) => {
+      const key = resolveSeriesKey(point);
+      const countValue = typeof point.value === 'number' ? point.value : Number(point.value ?? 0);
+
+      return {
+        date: resolveSeriesDate(point),
+        count: Number.isFinite(countValue) ? countValue : 0,
+        recoveryRate: resolveLookupValue(recoveryLookup, key),
+        complianceRate: resolveLookupValue(complianceLookup, key),
+        alertsCount: resolveLookupValue(alertsLookup, key),
+      };
+    });
+  }, [alertsSeries, claimsWindow, complianceSeries, recoverySeries]);
 
   if (loading) {
     return <DashboardLoading locale={locale} />;
@@ -281,10 +592,17 @@ export function RejectionDashboard({ userRole, locale, userName, onLocaleChange 
         userRole={userRole}
         userName={userName}
         onLocaleChange={onLocaleChange}
+        accounts={accountOptions}
+        selectedAccount={selectedAccount}
+  onAccountChange={(accountId: string | null) => setSelectedAccount(accountId)}
         isHealthy={isHealthy}
         health={health}
         activeNav={activeNav}
         onNavigate={handleNavClick}
+        onToggleMobileNav={toggleMobileNav}
+        showMobileNav={showMobileNav}
+        onOpenCommandPalette={() => setShowCommandPalette(true)}
+        onToggleAgent={() => setShowAgentOverlay(true)}
         sectionRefs={{
           overview: overviewRef,
           claims: claimsRef,
@@ -293,18 +611,31 @@ export function RejectionDashboard({ userRole, locale, userName, onLocaleChange 
           audit: auditRef,
         }}
         metrics={metricsSummary}
+        quickMetrics={quickMetrics}
         normalizedRejections={normalizedRejections}
         normalizedLetters={normalizedLetters}
         fraudAlerts={fraudAlerts}
         trendPoints={trendPoints}
-        sparklinePath={sparklinePath}
-        trendsLoading={trendsLoading}
+  sparkline={sparkline}
+  seriesLoading={seriesLoading}
         lastUpdated={data?.analytics?.updated_at ?? new Date().toISOString()}
         onRefresh={refetch}
         onAction={triggerAction}
         showMobileActions={showMobileActions}
         onToggleMobileActions={toggleMobileActions}
         onCloseMobileActions={closeMobileActions}
+      />
+      <MobileNavDrawer
+        locale={locale}
+        open={showMobileNav}
+        activeNav={activeNav}
+        accounts={accountOptions}
+        selectedAccount={selectedAccount}
+  onAccountChange={(accountId: string | null) => setSelectedAccount(accountId)}
+        onNavigate={handleNavClick}
+        onClose={closeMobileNav}
+        onOpenCommandPalette={() => setShowCommandPalette(true)}
+        onContactAgent={() => setShowAgentOverlay(true)}
       />
       <ActionModals
         locale={locale}
@@ -331,6 +662,27 @@ export function RejectionDashboard({ userRole, locale, userName, onLocaleChange 
           auditTrail: () => setShowAuditTrail(false),
         }}
         onSuccess={refetch}
+      />
+      <CommandPalette
+        locale={locale}
+        isOpen={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        commands={commandItems}
+      />
+      <AgentOverlay
+        locale={locale}
+        isOpen={showAgentOverlay}
+        onClose={() => setShowAgentOverlay(false)}
+        metrics={quickMetrics}
+        metricSummary={metricsSummary}
+        selectedAccount={selectedAccountOption}
+        rejections={normalizedRejections}
+        letters={normalizedLetters}
+        fraudAlerts={fraudAlerts}
+        trendPoints={trendPoints}
+        isHealthy={isHealthy}
+        health={health}
+        onAction={triggerAction}
       />
     </>
   );
@@ -387,18 +739,26 @@ function DashboardView({
   userRole,
   userName,
   onLocaleChange,
+  accounts,
+  selectedAccount,
+  onAccountChange,
   isHealthy,
   health,
   activeNav,
   onNavigate,
+  onToggleMobileNav,
+  showMobileNav,
+  onOpenCommandPalette,
+  onToggleAgent,
   sectionRefs,
   metrics,
+  quickMetrics,
   normalizedRejections,
   normalizedLetters,
   fraudAlerts,
   trendPoints,
-  sparklinePath,
-  trendsLoading,
+  sparkline,
+  seriesLoading,
   lastUpdated,
   onRefresh,
   onAction,
@@ -411,10 +771,17 @@ function DashboardView({
   userRole: UserRole;
   userName?: string;
   onLocaleChange?: (locale: Locale) => void;
+  accounts: AccountOption[];
+  selectedAccount: string | null;
+  onAccountChange: (accountId: string | null) => void;
   isHealthy: boolean;
-  health: any;
+  health: HealthStatus | null;
   activeNav: string;
   onNavigate: (sectionId: string) => void;
+  onToggleMobileNav: () => void;
+  showMobileNav: boolean;
+  onOpenCommandPalette: () => void;
+  onToggleAgent: () => void;
   sectionRefs: {
     overview: React.RefObject<HTMLElement>;
     claims: React.RefObject<HTMLElement>;
@@ -431,6 +798,12 @@ function DashboardView({
     overdueLetters: number;
     complianceWithin30: number;
   };
+  quickMetrics: Array<{
+    id: string;
+    label: string;
+    value: string;
+    helper: string;
+  }>;
   normalizedRejections: NormalizedRejection[];
   normalizedLetters: NormalizedLetter[];
   fraudAlerts: Array<{
@@ -441,8 +814,8 @@ function DashboardView({
     physician: string | null;
   }>;
   trendPoints: TrendPoint[];
-  sparklinePath: string;
-  trendsLoading: boolean;
+  sparkline: SparklineGeometry | null;
+  seriesLoading: boolean;
   lastUpdated: string;
   onRefresh: () => void;
   onAction: (actionId: string) => void;
@@ -463,12 +836,12 @@ function DashboardView({
   return (
     <div className="relative min-h-screen overflow-hidden bg-black" dir={direction}>
       <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-brainsait-midnight via-black to-brainsait-violet opacity-80" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.15),transparent_55%)]" />
+  <div className="absolute inset-0 bg-gradient-to-br from-brainsait-midnight via-black to-brainsait-violet opacity-80" />
+  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.15),transparent_55%)]" />
       </div>
 
       <div className="relative z-10 flex flex-col lg:flex-row min-h-screen">
-        <aside className="hidden lg:flex lg:w-72 xl:w-80 flex-col border-r border-white/10 bg-white/5/60 backdrop-blur-xl">
+  <aside className="hidden lg:flex lg:w-72 xl:w-80 flex-col border-r border-foreground/10 bg-surface-base/60 backdrop-blur-xl">
           <div className="p-6 border-b border-white/10">
             <div className="text-3xl mb-2">🧠</div>
             <h2 className="text-xl font-semibold text-white">BrainSAIT</h2>
@@ -482,14 +855,14 @@ function DashboardView({
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
                 className={cn(
-                  'w-full flex items-center gap-3 px-4 py-3 text-sm rounded-xl transition border border-transparent',
+                  'w-full flex items-center gap-3 px-4 py-3 text-sm rounded-xl transition border border-transparent text-secondary-foreground',
                   activeNav === item.id
-                    ? 'bg-white/15 text-white border-white/25 shadow-glow'
-                    : 'text-gray-300 hover:text-white hover:bg-white/10'
+                    ? 'bg-foreground/10 text-foreground border-foreground/20 shadow-glow'
+                    : 'hover:text-foreground hover:bg-foreground/5'
                 )}
               >
                 <span className="text-lg">{item.icon}</span>
-                <span>{item.label[locale]}</span>
+                <span>{translate(locale, item.label)}</span>
               </button>
             ))}
           </nav>
@@ -515,33 +888,92 @@ function DashboardView({
         </aside>
 
         <div className="flex-1 flex flex-col">
-          <header className="px-4 sm:px-6 py-4 border-b border-white/10 bg-white/5/70 backdrop-blur-xl flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-sm uppercase tracking-wide text-gray-400">
-                {locale === 'ar' ? 'لوحة إدارة المطالبات' : 'Claims operations cockpit'}
-              </p>
-              <h1 className="text-2xl sm:text-3xl font-semibold text-white">
-                {locale === 'ar' ? 'مرحباً' : 'Welcome'}, {userName ?? (locale === 'ar' ? 'فريق المطالبات' : 'Claims Team')} 👋
-              </h1>
-            </div>
-            <div className="flex flex-wrap items-center gap-3 justify-end">
-              <HealthBadge isHealthy={isHealthy} locale={locale} databaseStatus={health?.database} />
-              <LocaleToggle locale={locale} onChange={onLocaleChange} />
-              <div className="glass-morphism rounded-2xl px-4 py-2 flex items-center gap-3">
-                <div className="hidden sm:block text-xs text-gray-300 leading-tight">
-                  <div>{locale === 'ar' ? 'آخر تحديث' : 'Last sync'}</div>
-                  <div className="font-semibold text-white">
-                    {formatDateTime(lastUpdated, locale)}
-                  </div>
+          <header className="px-4 sm:px-6 py-4 border-b border-foreground/10 bg-background/70 backdrop-blur-xl flex flex-col gap-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-start gap-3">
+                <button
+                  type="button"
+                  onClick={onToggleMobileNav}
+                  aria-pressed={showMobileNav}
+                  aria-label={locale === 'ar' ? 'فتح قائمة التنقل' : 'Open navigation menu'}
+                  className="lg:hidden rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-gray-100 hover:bg-white/10 transition"
+                >
+                  {locale === 'ar' ? 'قائمة' : 'Menu'}
+                </button>
+                <div>
+                  <p className="text-sm uppercase tracking-wide text-gray-400">
+                    {locale === 'ar' ? 'لوحة إدارة المطالبات' : 'Claims operations cockpit'}
+                  </p>
+                  <h1 className="text-2xl sm:text-3xl font-semibold text-white">
+                    {locale === 'ar' ? 'مرحباً' : 'Welcome'}, {userName ?? (locale === 'ar' ? 'فريق المطالبات' : 'Claims Team')} 👋
+                  </h1>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brainsait-cyan/60 to-brainsait-blue/60 flex items-center justify-center text-lg">
-                  {userName ? userName.charAt(0).toUpperCase() : 'B'}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 justify-end">
+                <div className="w-full min-w-[220px] sm:w-auto sm:max-w-xs">
+                  <AccountSwitcher
+                    locale={locale}
+                    accounts={accounts}
+                    selectedAccount={selectedAccount}
+                    onChange={onAccountChange}
+                  />
+                </div>
+                <HealthBadge isHealthy={isHealthy} locale={locale} databaseStatus={health?.database} />
+                <ThemeToggle locale={locale} />
+                <LocaleToggle locale={locale} onChange={onLocaleChange} />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={onOpenCommandPalette}
+                  className="text-xs uppercase tracking-wide"
+                  locale={locale}
+                >
+                  {locale === 'ar' ? 'لوحة الأوامر' : 'Command palette'}
+                </Button>
+                <Button type="button" size="sm" variant="primary" onClick={onToggleAgent} locale={locale}>
+                  {locale === 'ar' ? 'مساعد BrainSAIT' : 'Ask BrainSAIT agent'}
+                </Button>
+                <div className="glass-morphism rounded-2xl px-4 py-2 flex items-center gap-3">
+                  <div className="hidden sm:block text-xs text-gray-300 leading-tight">
+                    <div>{locale === 'ar' ? 'آخر تحديث' : 'Last sync'}</div>
+                    <div className="font-semibold text-white">
+                      {formatDateTime(lastUpdated, locale)}
+                    </div>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brainsait-cyan/60 to-brainsait-blue/60 flex items-center justify-center text-lg">
+                    {userName ? userName.charAt(0).toUpperCase() : 'B'}
+                  </div>
                 </div>
               </div>
             </div>
+
+            <QuickMetricsRibbon locale={locale} metrics={quickMetrics} />
           </header>
 
           <main className="flex-1 overflow-y-auto px-4 sm:px-6 pb-24 sm:pb-10">
+            <div className="pt-6 lg:hidden">
+              <Tabs
+                value={activeNav}
+                onValueChange={onNavigate}
+                locale={locale}
+                defaultValue={NAV_ITEMS[0]?.id}
+              >
+                <TabsList className="w-full flex-nowrap overflow-x-auto">
+                  {NAV_ITEMS.map((item) => (
+                    <TabsTrigger
+                      key={item.id}
+                      value={item.id}
+                      icon={item.icon}
+                      className="whitespace-nowrap"
+                    >
+                      {translate(locale, item.label)}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            </div>
             <div className="py-8 space-y-12">
               <OverviewSection
                 locale={locale}
@@ -556,8 +988,8 @@ function DashboardView({
                   complianceWithin30,
                 }}
                 trendPoints={trendPoints}
-                sparklinePath={sparklinePath}
-                trendsLoading={trendsLoading}
+                sparkline={sparkline}
+                seriesLoading={seriesLoading}
                 onRefresh={onRefresh}
                 onAction={onAction}
               />
@@ -629,7 +1061,7 @@ function DashboardView({
                   className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 text-sm text-gray-200 hover:bg-white/15 transition"
                 >
                   <span>{action.icon}</span>
-                  <span>{action.label[locale]}</span>
+                  <span>{translate(locale, action.label)}</span>
                 </button>
               ))}
             </div>
@@ -643,6 +1075,89 @@ function DashboardView({
       >
         {showMobileActions ? '×' : '+'}
       </button>
+    </div>
+  );
+}
+
+function AccountSwitcher({
+  locale,
+  accounts,
+  selectedAccount,
+  onChange,
+}: Readonly<{
+  locale: Locale;
+  accounts: AccountOption[];
+  selectedAccount: string | null;
+  onChange: (accountId: string | null) => void;
+}>) {
+  if (!accounts.length) {
+    return null;
+  }
+
+  const handleChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    onChange(event.target.value ?? null);
+  };
+
+  const helper = locale === 'ar' ? 'تشغيل متعدد المواقع' : 'Multi-facility operations';
+
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-xs uppercase tracking-wide text-gray-400" htmlFor="account-switcher">
+        {locale === 'ar' ? 'الحساب التشغيلي' : 'Operational account'}
+      </label>
+      <Select
+        id="account-switcher"
+        value={selectedAccount ?? accounts[0].id}
+        onChange={handleChange}
+        aria-label={locale === 'ar' ? 'اختيار حساب تشغيلي' : 'Select operational account'}
+      >
+        {accounts.map((account) => {
+          const suffix = account.region ? ` - ${account.region}` : account.code ? ` (${account.code})` : '';
+          return (
+            <option key={account.id} value={account.id}>
+              {account.name}{suffix}
+            </option>
+          );
+        })}
+      </Select>
+      <span className="text-[11px] text-gray-500">{helper}</span>
+    </div>
+  );
+}
+
+function QuickMetricsRibbon({
+  locale,
+  metrics,
+}: Readonly<{
+  locale: Locale;
+  metrics: Array<{
+    id: string;
+    label: string;
+    value: string;
+    helper: string;
+  }>;
+}>) {
+  if (!metrics.length) {
+    return null;
+  }
+
+  return (
+    <div className="glass-morphism rounded-2xl border border-white/10 px-4 py-3">
+      <div className="flex items-center gap-6 overflow-x-auto">
+        {metrics.map((metric) => (
+          <div key={metric.id} className="min-w-[140px]">
+            <p className="text-[11px] uppercase tracking-wide text-gray-400">
+              {metric.label}
+            </p>
+            <p className="text-xl font-semibold text-white">{metric.value}</p>
+            <p className="text-[11px] text-gray-500">{metric.helper}</p>
+          </div>
+        ))}
+        <div className="hidden sm:flex flex-col text-right text-[11px] text-gray-500 ml-auto">
+          <span>{locale === 'ar' ? 'متابعة الأداء' : 'Performance watchlist'}</span>
+          <span>{locale === 'ar' ? 'يتم التحديث كل ساعة' : 'Auto-refreshing hourly'}</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -738,8 +1253,8 @@ function OverviewSection({
   sectionRef,
   metrics,
   trendPoints,
-  sparklinePath,
-  trendsLoading,
+  sparkline,
+  seriesLoading,
   onRefresh,
   onAction,
 }: Readonly<{
@@ -755,8 +1270,8 @@ function OverviewSection({
     complianceWithin30: number;
   };
   trendPoints: TrendPoint[];
-  sparklinePath: string;
-  trendsLoading: boolean;
+  sparkline: SparklineGeometry | null;
+  seriesLoading: boolean;
   onRefresh: () => void;
   onAction: (actionId: string) => void;
 }>): JSX.Element {
@@ -769,7 +1284,6 @@ function OverviewSection({
     overdueLetters,
     complianceWithin30,
   } = metrics;
-
   return (
     <section ref={sectionRef} data-section="overview" className="space-y-6">
       <SectionHeading
@@ -806,12 +1320,126 @@ function OverviewSection({
         <TrendCard
           locale={locale}
           points={trendPoints}
-          sparklinePath={sparklinePath}
-          loading={trendsLoading}
+          sparkline={sparkline}
+          loading={seriesLoading}
         />
         <QuickActionPanel locale={locale} onAction={onAction} />
       </div>
     </section>
+  );
+}
+
+function MobileNavDrawer({
+  locale,
+  open,
+  activeNav,
+  accounts,
+  selectedAccount,
+  onAccountChange,
+  onNavigate,
+  onClose,
+  onOpenCommandPalette,
+  onContactAgent,
+}: Readonly<{
+  locale: Locale;
+  open: boolean;
+  activeNav: string;
+  accounts: AccountOption[];
+  selectedAccount: string | null;
+  onAccountChange: (accountId: string | null) => void;
+  onNavigate: (sectionId: string) => void;
+  onClose: () => void;
+  onOpenCommandPalette: () => void;
+  onContactAgent: () => void;
+}>) {
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden"
+            onClick={onClose}
+          />
+          <motion.aside
+            initial={{ x: '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '-100%' }}
+            transition={{ type: 'spring', stiffness: 260, damping: 30 }}
+            className="fixed inset-y-0 left-0 z-50 w-80 max-w-full bg-black/90 backdrop-blur-xl border-r border-white/10 p-4 space-y-6 lg:hidden"
+          >
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-white">
+                  {locale === 'ar' ? 'قائمة التنقل' : 'Navigation'}
+                </h2>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-lg border border-white/10 px-3 py-1 text-sm text-gray-200 hover:bg-white/10 transition"
+                >
+                  {locale === 'ar' ? 'إغلاق' : 'Close'}
+                </button>
+              </div>
+              <AccountSwitcher
+                locale={locale}
+                accounts={accounts}
+                selectedAccount={selectedAccount}
+                onChange={onAccountChange}
+              />
+            </div>
+
+            <nav className="space-y-2 overflow-y-auto">
+              {NAV_ITEMS.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => onNavigate(item.id)}
+                  className={cn(
+                    'w-full rounded-xl border px-4 py-3 text-left text-sm transition',
+                    activeNav === item.id
+                      ? 'border-foreground/30 bg-foreground/10 text-white'
+                      : 'border-transparent bg-white/5 text-gray-200 hover:bg-white/10'
+                  )}
+                >
+                  <span className="mr-2" aria-hidden="true">{item.icon}</span>
+                  {translate(locale, item.label)}
+                </button>
+              ))}
+            </nav>
+
+            <div className="space-y-3 border-t border-white/10 pt-4">
+              <Button
+                type="button"
+                fullWidth
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  onClose();
+                  onOpenCommandPalette();
+                }}
+                locale={locale}
+              >
+                {locale === 'ar' ? 'لوحة الأوامر' : 'Open command palette'}
+              </Button>
+              <Button
+                type="button"
+                fullWidth
+                size="sm"
+                onClick={() => {
+                  onClose();
+                  onContactAgent();
+                }}
+                locale={locale}
+              >
+                {locale === 'ar' ? 'التحدث مع المساعد' : 'Talk to the agent'}
+              </Button>
+            </div>
+          </motion.aside>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -932,7 +1560,7 @@ function AuditSection({
   sectionRef: React.RefObject<HTMLElement>;
   onAction: (actionId: string) => void;
   isHealthy: boolean;
-  health: any;
+  health: HealthStatus | null;
   lastUpdated: string;
   onRefresh: () => void;
 }>): JSX.Element {
@@ -975,11 +1603,11 @@ function SectionHeading({
           {locale === 'ar' ? 'لوحة BrainSAIT' : 'BrainSAIT cockpit'}
         </p>
         <h2 className="mt-2 text-2xl font-semibold text-white">
-          {title[locale] ?? title.en}
+          {translate(locale, title)}
         </h2>
         {description && (
           <p className="mt-2 text-sm text-white/60 max-w-2xl">
-            {description[locale] ?? description.en}
+            {translate(locale, description)}
           </p>
         )}
       </div>
@@ -997,7 +1625,7 @@ function SystemStatusPanel({
 }: Readonly<{
   locale: Locale;
   isHealthy: boolean;
-  health: any;
+  health: HealthStatus | null;
   lastSynced: string;
   onRefresh: () => void;
 }>) {
@@ -1080,7 +1708,7 @@ function StatusTile({
   return (
     <div className={cn('rounded-xl border px-4 py-4', toneStyles[tone])}>
       <p className="text-xs uppercase tracking-wide text-white/60">
-        {label[locale] ?? label.en}
+        {translate(locale, label)}
       </p>
       <p className="mt-2 text-lg font-semibold text-white">{value || '—'}</p>
     </div>
@@ -1192,19 +1820,62 @@ function MetricGrid({
 function TrendCard({
   locale,
   points,
-  sparklinePath,
+  sparkline,
   loading,
 }: Readonly<{
   locale: Locale;
   points: TrendPoint[];
-  sparklinePath: string;
+  sparkline: SparklineGeometry | null;
   loading: boolean;
 }>) {
   const lastPoint = points[points.length - 1];
   const positiveTrend = points.length > 1 && lastPoint && lastPoint.count <= points[0].count;
   const downwardLabel = translate(locale, { en: 'Downward', ar: 'انخفاض' });
   const upwardLabel = translate(locale, { en: 'Upward', ar: 'تصاعدي' });
-  const chartContent = renderTrendChartContent(locale, loading, sparklinePath, points);
+  const chartContent = renderTrendChartContent(locale, loading, sparkline, points);
+  const detailItems = useMemo(() => {
+    const items: Array<{ key: string; label: string; value: string }> = [
+      {
+        key: 'date',
+        label: locale === 'ar' ? 'آخر تحديث' : 'Last point',
+        value: lastPoint ? formatDate(lastPoint.date, locale) : '—',
+      },
+      {
+        key: 'claims',
+        label: locale === 'ar' ? 'مطالبات' : 'Claims',
+        value:
+          lastPoint && Number.isFinite(lastPoint.count)
+            ? formatNumberValue(lastPoint.count, locale)
+            : '—',
+      },
+    ];
+
+    if (typeof lastPoint?.recoveryRate === 'number' && Number.isFinite(lastPoint.recoveryRate)) {
+      items.push({
+        key: 'recovery',
+        label: locale === 'ar' ? 'نسبة الاسترداد' : 'Recovery rate',
+        value: formatPercentValue(lastPoint.recoveryRate, locale),
+      });
+    }
+
+    if (typeof lastPoint?.complianceRate === 'number' && Number.isFinite(lastPoint.complianceRate)) {
+      items.push({
+        key: 'compliance',
+        label: locale === 'ar' ? 'التزام 30 يوم' : '30d compliance',
+        value: formatPercentValue(lastPoint.complianceRate, locale),
+      });
+    }
+
+    if (typeof lastPoint?.alertsCount === 'number' && Number.isFinite(lastPoint.alertsCount)) {
+      items.push({
+        key: 'alerts',
+        label: locale === 'ar' ? 'تنبيهات احتيال' : 'Fraud alerts',
+        value: formatNumberValue(lastPoint.alertsCount, locale),
+      });
+    }
+
+    return items;
+  }, [lastPoint, locale]);
 
   return (
     <div className="glass-morphism rounded-2xl p-6 space-y-6">
@@ -1227,34 +1898,12 @@ function TrendCard({
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-gray-300">
-        <div>
-          <p className="uppercase tracking-wide text-gray-500">
-            {locale === 'ar' ? 'آخر تحديث' : 'Last point'}
-          </p>
-          <p className="font-semibold text-white">
-            {lastPoint ? formatDate(lastPoint.date, locale) : '—'}
-          </p>
-        </div>
-        <div>
-          <p className="uppercase tracking-wide text-gray-500">
-            {locale === 'ar' ? 'مطالبات' : 'Claims'}
-          </p>
-          <p className="font-semibold text-white">{lastPoint ? lastPoint.count : '—'}</p>
-        </div>
-        <div>
-          <p className="uppercase tracking-wide text-gray-500">
-            {locale === 'ar' ? 'قيمة مرفوضة' : 'Rejected'}
-          </p>
-          <p className="font-semibold text-white">
-            {lastPoint ? formatCurrency(lastPoint.rejectedAmount, locale) : '—'}
-          </p>
-        </div>
-        <div>
-          <p className="uppercase tracking-wide text-gray-500">
-            {locale === 'ar' ? 'استرداد' : 'Recovered'}
-          </p>
-          <p className="font-semibold text-white">{lastPoint ? lastPoint.recoveredCount : '—'}</p>
-        </div>
+        {detailItems.map((item) => (
+          <div key={item.key}>
+            <p className="uppercase tracking-wide text-gray-500">{item.label}</p>
+            <p className="font-semibold text-white">{item.value}</p>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -1263,7 +1912,7 @@ function TrendCard({
 function renderTrendChartContent(
   locale: Locale,
   loading: boolean,
-  sparklinePath: string,
+  sparkline: SparklineGeometry | null,
   points: TrendPoint[],
 ): ReactNode {
   if (loading) {
@@ -1274,9 +1923,9 @@ function renderTrendChartContent(
     );
   }
 
-  if (points.length >= 2) {
+  if (sparkline) {
     return (
-      <svg viewBox="0 0 220 100" className="w-full h-full">
+      <svg viewBox="0 0 100 100" className="w-full h-full">
         <defs>
           <linearGradient id="spark" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="rgba(14,165,233,0.7)" />
@@ -1284,12 +1933,12 @@ function renderTrendChartContent(
           </linearGradient>
         </defs>
         <path
-          d={`${sparklinePath} L220 100 L0 100 Z`}
+          d={`${sparkline.path} L100,100 L0,100 Z`}
           fill="url(#spark)"
           stroke="none"
         />
         <path
-          d={sparklinePath}
+          d={sparkline.path}
           fill="none"
           stroke="rgba(14,165,233,0.9)"
           strokeWidth="3"
@@ -1299,9 +1948,13 @@ function renderTrendChartContent(
     );
   }
 
+  const message = points.length === 0
+    ? translate(locale, { en: 'No trend data available', ar: 'لا توجد بيانات اتجاه' })
+    : translate(locale, { en: 'Not enough data', ar: 'بيانات غير كافية' });
+
   return (
     <div className="h-full flex items-center justify-center text-gray-400">
-      {translate(locale, { en: 'Not enough data', ar: 'بيانات غير كافية' })}
+      {message}
     </div>
   );
 }
@@ -1314,33 +1967,45 @@ function QuickActionPanel({
   onAction: (actionId: string) => void;
 }>) {
   return (
-    <div className="glass-morphism rounded-2xl p-6 h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-white">
-          {locale === 'ar' ? 'إجراءات فورية' : 'Quick actions'}
-        </h3>
-        <span className="text-xs text-gray-400 uppercase tracking-wide">
-          {locale === 'ar' ? 'تكامل مع الواجهة الخلفية' : 'Backend connected'}
-        </span>
-      </div>
-      <div className="grid grid-cols-2 gap-3 flex-1">
-        {ACTIONS.map((action) => (
-          <motion.button
-            key={action.id}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => onAction(action.id)}
-            className="rounded-xl bg-white/5 border border-white/10 px-3 py-4 text-left text-sm text-gray-200 hover:bg-white/15 transition"
-          >
-            <div className="text-2xl mb-3">{action.icon}</div>
-            <div className="font-semibold text-white">{action.label[locale]}</div>
-            <div className="text-xs text-gray-400 mt-1">
-              {locale === 'ar' ? 'يرسل طلبًا مباشرًا لواجهة البرمجة' : 'Executes live API workflow'}
-            </div>
-          </motion.button>
-        ))}
-      </div>
-    </div>
+    <Card locale={locale} variant="glass" className="h-full flex flex-col">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-white">
+          {locale === 'ar' ? 'إجراءات سريعة' : 'Quick Actions'}
+        </CardTitle>
+        <CardDescription className="text-xs text-gray-300">
+          {locale === 'ar'
+            ? 'ابدأ بعملية جديدة أو انتقل مباشرةً إلى المهام اليومية'
+            : 'Kick off a new request or jump straight into your daily workflows.'}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex-1 pt-0">
+        <div className="grid grid-cols-2 gap-3 h-full">
+          {ACTIONS.map((action) => (
+            <motion.button
+              key={action.id}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => onAction(action.id)}
+              className="group relative flex flex-col gap-2 rounded-2xl border border-white/15 bg-white/5 px-4 py-4 text-left text-sm text-gray-200 transition hover:border-white/35 hover:bg-white/10"
+            >
+              <span className="text-2xl text-brainsait-cyan">{action.icon}</span>
+              <span className="font-semibold text-white leading-tight">{translate(locale, action.label)}</span>
+              <span className="text-xs text-gray-400 leading-snug">
+                {locale === 'ar' ? 'يرسل طلبًا مباشرًا لواجهة البرمجة' : 'Executes live API workflow'}
+              </span>
+              <div className="absolute inset-y-0 end-3 flex items-center opacity-0 transition-opacity group-hover:opacity-100">
+                <Badge tone="info" locale={locale} className="text-[11px]">
+                  {locale === 'ar' ? 'ابدأ' : 'Start'}
+                </Badge>
+              </div>
+            </motion.button>
+          ))}
+        </div>
+      </CardContent>
+      <CardFooter className="pt-2 text-[11px] uppercase tracking-wide text-gray-400">
+        {locale === 'ar' ? 'تكامل مباشر مع واجهات برمجة التطبيقات' : 'Live API integrations'}
+      </CardFooter>
+    </Card>
   );
 }
 
@@ -1404,6 +2069,7 @@ function ComplianceHighlights({
   letters: NormalizedLetter[];
   overdueCount: number;
 }>) {
+  const localeKey = resolveLocaleKey(locale);
   return (
     <div className="glass-morphism rounded-2xl p-6 h-full">
       <div className="flex items-center justify-between mb-4">
@@ -1423,30 +2089,35 @@ function ComplianceHighlights({
         </div>
       ) : (
         <div className="space-y-4">
-          {letters.map((letter) => (
-            <div key={letter.id} className="border border-white/5 rounded-xl px-4 py-4 bg-white/5">
-              <p className="text-sm font-semibold text-white mb-1">
-                {letter.subject?.[locale] ?? letter.subject?.en ?? letter.subject?.ar ?? '—'}
-              </p>
-              <p className="text-xs text-gray-400 mb-2">
-                {locale === 'ar' ? 'إلى: ' : 'To: '}
-                {letter.recipient}
-              </p>
-              <div className="flex flex-wrap items-center gap-3 text-xs text-gray-300">
-                <Badge tone="muted">
-                  {locale === 'ar' ? 'الاستحقاق' : 'Due'}: {formatDate(letter.dueDate, locale)}
-                </Badge>
-                {letter.totalAmount ? (
-                  <Badge tone="info">{formatCurrency(letter.totalAmount, locale)}</Badge>
-                ) : null}
-                {letter.daysOverdue && letter.daysOverdue > 0 ? (
-                  <Badge tone="warning">
-                    {letter.daysOverdue} {locale === 'ar' ? 'يوم متأخر' : 'days late'}
+          {letters.map((letter) => {
+            const subject =
+              typeof letter.subject === 'string'
+                ? letter.subject
+                : letter.subject?.[localeKey] ?? letter.subject?.en ?? letter.subject?.ar;
+
+            return (
+              <div key={letter.id} className="border border-white/5 rounded-xl px-4 py-4 bg-white/5">
+                <p className="text-sm font-semibold text-white mb-1">{subject ?? '—'}</p>
+                <p className="text-xs text-gray-400 mb-2">
+                  {locale === 'ar' ? 'إلى: ' : 'To: '}
+                  {letter.recipient}
+                </p>
+                <div className="flex flex-wrap items-center gap-3 text-xs text-gray-300">
+                  <Badge tone="muted">
+                    {locale === 'ar' ? 'الاستحقاق' : 'Due'}: {formatDate(letter.dueDate, locale)}
                   </Badge>
-                ) : null}
+                  {typeof letter.totalAmount === 'number' ? (
+                    <Badge tone="info">{formatCurrency(letter.totalAmount, locale)}</Badge>
+                  ) : null}
+                  {letter.daysOverdue && letter.daysOverdue > 0 ? (
+                    <Badge tone="warning">
+                      {letter.daysOverdue} {locale === 'ar' ? 'يوم متأخر' : 'days late'}
+                    </Badge>
+                  ) : null}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -1573,27 +2244,6 @@ function HealthBadge({
   );
 }
 
-function Badge({
-  children,
-  tone = 'info',
-}: Readonly<{
-  children: ReactNode;
-  tone?: 'info' | 'warning' | 'success' | 'muted';
-}>) {
-  const toneStyles: Record<string, string> = {
-    info: 'bg-brainsait-blue/20 text-brainsait-cyan border-brainsait-blue/30',
-    warning: 'bg-orange-500/20 text-orange-200 border-orange-400/30',
-    success: 'bg-green-500/20 text-green-200 border-green-400/30',
-    muted: 'bg-white/10 text-gray-200 border-white/10',
-  };
-
-  return (
-    <span className={`px-3 py-1 rounded-full border text-xs font-semibold whitespace-nowrap ${toneStyles[tone] ?? toneStyles.info}`}>
-      {children}
-    </span>
-  );
-}
-
 function formatCurrency(amount: number, locale: Locale): string {
   if (!amount && amount !== 0) return '—';
   const formatted = amount.toLocaleString(locale === 'ar' ? 'ar-SA' : 'en-US', {
@@ -1627,15 +2277,21 @@ function formatDateTime(value: string | Date, locale: Locale): string {
 }
 
 function translateRole(role: UserRole, locale: Locale): string {
+  const localeKey = resolveLocaleKey(locale);
   const dictionary: Record<UserRole, { en: string; ar: string }> = {
     ADMIN: { en: 'Administrator', ar: 'مدير النظام' },
     MANAGER: { en: 'Operations Manager', ar: 'مدير العمليات' },
     ANALYST: { en: 'Claims Analyst', ar: 'محلل المطالبات' },
   };
-  return dictionary[role]?.[locale] ?? role;
+  const entry = dictionary[role];
+  if (!entry) {
+    return role;
+  }
+  return entry[localeKey] ?? entry.en;
 }
 
 function translateStatus(status: string, locale: Locale): string {
+  const localeKey = resolveLocaleKey(locale);
   const normalized = status?.toUpperCase?.() ?? status;
   const map: Record<string, { en: string; ar: string }> = {
     RECOVERED: { en: 'Recovered', ar: 'تم الاسترداد' },
@@ -1644,10 +2300,15 @@ function translateStatus(status: string, locale: Locale): string {
     FINAL_REJECTION: { en: 'Final rejection', ar: 'مرفوض نهائيًا' },
     NON_APPEALABLE: { en: 'Non-appealable', ar: 'غير قابل للاستئناف' },
   };
-  return map[normalized]?.[locale] ?? status;
+  const entry = map[normalized];
+  if (!entry) {
+    return status;
+  }
+  return entry[localeKey] ?? entry.en;
 }
 
 function translateSeverity(severity: string, locale: Locale): string {
+  const localeKey = resolveLocaleKey(locale);
   const normalized = severity?.toUpperCase?.() ?? severity;
   const map: Record<string, { en: string; ar: string }> = {
     LOW: { en: 'Low', ar: 'منخفض' },
@@ -1655,7 +2316,11 @@ function translateSeverity(severity: string, locale: Locale): string {
     HIGH: { en: 'High', ar: 'مرتفع' },
     CRITICAL: { en: 'Critical', ar: 'حرج' },
   };
-  return map[normalized]?.[locale] ?? severity;
+  const entry = map[normalized];
+  if (!entry) {
+    return severity;
+  }
+  return entry[localeKey] ?? entry.en;
 }
 
 function severityTone(severity: string): 'info' | 'warning' | 'success' | 'muted' {
@@ -1666,22 +2331,115 @@ function severityTone(severity: string): 'info' | 'warning' | 'success' | 'muted
   return 'info';
 }
 
-function buildSparklinePath(points: TrendPoint[]): string {
-  if (points.length < 2) return '';
-  const width = 220;
-  const height = 100;
-  const maxCount = Math.max(...points.map((p) => p.count), 1);
+function createSeriesLookup(points: DashboardMetricSeriesPoint[]): Map<string, DashboardMetricSeriesPoint> {
+  const lookup = new Map<string, DashboardMetricSeriesPoint>();
 
-  return points
-    .map((point, index) => {
-      const x = (index / (points.length - 1)) * width;
-      const y = height - (point.count / maxCount) * height;
-      return `${index === 0 ? 'M' : 'L'}${x.toFixed(2)} ${y.toFixed(2)}`;
-    })
-    .join(' ');
+  const register = (key: string, point: DashboardMetricSeriesPoint) => {
+    if (!key) {
+      return;
+    }
+    const existing = lookup.get(key);
+    if (!existing) {
+      lookup.set(key, point);
+      return;
+    }
+
+    const currentValue = typeof existing.value === 'number' ? existing.value : undefined;
+    const nextValue = typeof point.value === 'number' ? point.value : undefined;
+
+    if (typeof nextValue === 'number' && (!currentValue || nextValue >= currentValue)) {
+      lookup.set(key, point);
+    }
+  };
+
+  points.forEach((point) => {
+    const key = resolveSeriesKey(point);
+    if (key) {
+      register(key, point);
+    }
+
+    const dayKey = resolveSeriesDayKey(point);
+    if (dayKey && dayKey !== key) {
+      register(dayKey, point);
+    }
+  });
+
+  return lookup;
 }
 
-function normalizeRejectionRecord(record: any): NormalizedRejection {
+function resolveSeriesKey(point: DashboardMetricSeriesPoint): string {
+  if (typeof point.ts === 'number' && Number.isFinite(point.ts)) {
+    return String(point.ts);
+  }
+  if (typeof point.timestamp === 'string' && point.timestamp.trim().length > 0) {
+    return point.timestamp;
+  }
+  return '';
+}
+
+function resolveSeriesDayKey(point: DashboardMetricSeriesPoint): string {
+  if (typeof point.ts === 'number' && Number.isFinite(point.ts)) {
+    const date = new Date(point.ts);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toISOString().slice(0, 10);
+    }
+  }
+  if (typeof point.timestamp === 'string' && point.timestamp.trim().length >= 10) {
+    return point.timestamp.slice(0, 10);
+  }
+  return '';
+}
+
+function resolveSeriesDate(point: DashboardMetricSeriesPoint): string {
+  if (typeof point.timestamp === 'string' && point.timestamp.trim().length > 0) {
+    return point.timestamp;
+  }
+
+  if (typeof point.ts === 'number' && Number.isFinite(point.ts)) {
+    const date = new Date(point.ts);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toISOString();
+    }
+  }
+
+  return new Date().toISOString();
+}
+
+function resolveLookupValue(
+  lookup: Map<string, DashboardMetricSeriesPoint>,
+  key: string,
+): number | undefined {
+  const byKey = lookup.get(key);
+  if (byKey && typeof byKey.value === 'number' && Number.isFinite(byKey.value)) {
+    return byKey.value;
+  }
+
+  const fallbackKey = key.slice(0, 10);
+  if (fallbackKey && fallbackKey !== key) {
+    const byDay = lookup.get(fallbackKey);
+    if (byDay && typeof byDay.value === 'number' && Number.isFinite(byDay.value)) {
+      return byDay.value;
+    }
+  }
+
+  return undefined;
+}
+
+function formatNumberValue(value: number, locale: Locale): string {
+  return value.toLocaleString(locale === 'ar' ? 'ar-SA' : 'en-US', {
+    maximumFractionDigits: 0,
+  });
+}
+
+function formatPercentValue(value: number, locale: Locale): string {
+  return new Intl.NumberFormat(locale === 'ar' ? 'ar-SA' : 'en-US', {
+    style: 'percent',
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(value / 100);
+}
+
+function normalizeRejectionRecord(record: DashboardRejectionRecord): NormalizedRejection {
   return {
     id: stringifyId(record),
     claimId: record.claim_id ?? record.claimId ?? record.id ?? '—',
@@ -1697,7 +2455,7 @@ function normalizeRejectionRecord(record: any): NormalizedRejection {
   };
 }
 
-function normalizeLetter(letter: any): NormalizedLetter {
+function normalizeLetter(letter: DashboardComplianceLetter): NormalizedLetter {
   return {
     id: stringifyId(letter),
     recipient: letter.recipient ?? '—',
@@ -1709,18 +2467,49 @@ function normalizeLetter(letter: any): NormalizedLetter {
   };
 }
 
-function stringifyId(entity: any): string {
-  if (!entity) return Math.random().toString(36).slice(2);
-  if (typeof entity === 'string') return entity;
-  if (typeof entity._id === 'string') return entity._id;
-  if (entity._id && typeof entity._id === 'object' && typeof entity._id.$oid === 'string') return entity._id.$oid;
-  if (typeof entity.id === 'string') return entity.id;
+function stringifyId(entity: unknown): string {
+  if (typeof entity === 'string') {
+    return entity;
+  }
+
+  if (entity && typeof entity === 'object') {
+    const reference = (entity as Record<string, unknown>).reference;
+    const id = (entity as Record<string, unknown>).id;
+    const rawMongoId = (entity as Record<string, unknown>)._id;
+
+    if (typeof rawMongoId === 'string') {
+      return rawMongoId;
+    }
+
+    if (rawMongoId && typeof rawMongoId === 'object') {
+      const mongoObject = rawMongoId as Record<string, unknown>;
+      if (typeof mongoObject.$oid === 'string') {
+        return mongoObject.$oid;
+      }
+    }
+
+    if (typeof id === 'string') {
+      return id;
+    }
+
+    if (typeof reference === 'string') {
+      return reference;
+    }
+  }
+
   return Math.random().toString(36).slice(2);
 }
 
-function translate(locale: Locale, text: Readonly<{ en: string; ar: string }>): string {
-  if (locale === 'ar') {
-    return text.ar ?? text.en;
+type LocaleKey = 'en' | 'ar';
+
+function resolveLocaleKey(locale: Locale): LocaleKey {
+  if (typeof locale === 'string' && locale.toLowerCase().startsWith('ar')) {
+    return 'ar';
   }
-  return text.en;
+  return 'en';
+}
+
+function translate(locale: Locale, text: Readonly<{ en: string; ar: string }>): string {
+  const localeKey = resolveLocaleKey(locale);
+  return text[localeKey] ?? text.en;
 }

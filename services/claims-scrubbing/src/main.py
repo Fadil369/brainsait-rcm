@@ -188,7 +188,7 @@ async def validate_claim(
                 logger.info("Returning cached validation result")
                 return ClaimValidationResponse.model_validate_json(cached_result)
             
-            issues = []
+            issues: list[ValidationIssue] = []
             
             # 1. NPHIES MDS Validation
             nphies_validator = NPHIESValidator(settings)

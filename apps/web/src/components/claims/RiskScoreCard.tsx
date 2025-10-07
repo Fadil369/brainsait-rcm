@@ -6,7 +6,7 @@
  */
 'use client';
 
-import { RiskLevel } from '@brainsait/shared-models';
+import { RiskLevel } from '@/types/claims';
 
 interface RiskScoreCardProps {
   score: number;

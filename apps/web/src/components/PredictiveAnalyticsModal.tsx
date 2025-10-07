@@ -1,9 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { Modal } from './Modal';
-import { usePredictiveAnalytics } from '@/lib/hooks';
 import { motion } from 'framer-motion';
+import { useState } from 'react';
+
+import { usePredictiveAnalytics } from '@/lib/hooks';
+import type { PredictiveForecastDay, PredictiveHistoricalPoint } from '@/types/api';
+
+import { Modal } from './Modal';
 
 interface PredictiveAnalyticsModalProps {
   isOpen: boolean;
@@ -17,7 +20,7 @@ export function PredictiveAnalyticsModal({ isOpen, onClose, locale }: Predictive
 
   const handlePredict = async () => {
     // Mock historical data - in real app, fetch from API
-    const historicalData = Array.from({ length: 90 }, (_, i) => ({
+    const historicalData: PredictiveHistoricalPoint[] = Array.from({ length: 90 }, (_, i) => ({
       date: new Date(Date.now() - (90 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       rejection_rate: 15 + Math.random() * 10,
       claim_count: 100 + Math.floor(Math.random() * 50)
@@ -135,15 +138,15 @@ export function PredictiveAnalyticsModal({ isOpen, onClose, locale }: Predictive
                 </h3>
                 <div className="glass-morphism p-4 rounded-lg max-h-96 overflow-y-auto">
                   <div className="space-y-2">
-                    {predictions.forecast.slice(0, 10).map((day: any, index: number) => (
-                      <div key={index} className="flex items-center justify-between py-2 border-b border-gray-700/50">
-                        <span className="text-gray-300 text-sm">{day.date}</span>
+                    {predictions.forecast.slice(0, 10).map((day: PredictiveForecastDay, index: number) => (
+                      <div key={day.date ?? index} className="flex items-center justify-between py-2 border-b border-gray-700/50">
+                        <span className="text-gray-300 text-sm">{day.date ?? '—'}</span>
                         <div className="flex gap-4">
                           <span className="text-orange-400 text-sm">
                             {locale === 'ar' ? 'رفض' : 'Rej'}: {day.rejection_rate ? day.rejection_rate.toFixed(1) : 'N/A'}%
                           </span>
                           <span className="text-blue-400 text-sm">
-                            {locale === 'ar' ? 'حجم' : 'Vol'}: {day.claim_count || 'N/A'}
+                            {locale === 'ar' ? 'حجم' : 'Vol'}: {day.claim_count ?? 'N/A'}
                           </span>
                         </div>
                       </div>

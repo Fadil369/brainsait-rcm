@@ -10,24 +10,24 @@
     "clean": "rm -rf .next"
   },
   "dependencies": {
+    "@brainsait/shared-models": "*",
+    "axios": "^1.6.5",
+    "date-fns": "^3.3.0",
+    "framer-motion": "^11.0.0",
     "next": "^14.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "framer-motion": "^11.0.0",
-    "date-fns": "^3.3.0",
-    "axios": "^1.6.5",
-    "@brainsait/shared-models": "*",
     "zod": "^3.22.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
-    "typescript": "^5.3.3",
-    "eslint": "^8.56.0",
-    "eslint-config-next": "^14.1.0",
-    "tailwindcss": "^3.4.0",
+    "autoprefixer": "^10.4.17",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^14.2.33",
     "postcss": "^8.4.33",
-    "autoprefixer": "^10.4.17"
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.3.3"
   }
 }

@@ -1,9 +1,10 @@
-import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import React from 'react';
+
 import DashboardScreen from '../screens/DashboardScreen';
-import RejectionsScreen from '../screens/RejectionsScreen';
 import LettersScreen from '../screens/LettersScreen';
+import RejectionsScreen from '../screens/RejectionsScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
