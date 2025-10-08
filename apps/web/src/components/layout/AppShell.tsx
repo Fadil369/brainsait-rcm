@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
+import { Fragment, forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { useAuth } from '@/lib/auth/context'
 import { useDashboardContext } from '@/providers/DashboardDataProvider'
 import { useTheme } from '@/providers/ThemeProvider'
 
@@ -19,6 +20,69 @@ const QUICK_LINKS = [
   { label: 'Realtime Hub', href: '/live' },
   { label: 'AI Agent', href: '/assistant' },
   { label: 'Academy', href: '/academy' },
+]
+
+const ONBOARDING_STEPS: OnboardingStep[] = [
+  {
+    id: 'connect-data',
+    title: {
+      en: 'Connect your data sources',
+      ar: 'ربط مصادر البيانات',
+    },
+    description: {
+      en: 'Link core payers and hospital feeds so claims and remittances sync automatically.',
+      ar: 'قم بربط شركات التأمين وقنوات المستشفى لتتم مزامنة المطالبات والتحصيلات تلقائياً.',
+    },
+    helper: {
+      en: 'We recommend starting with NPHIES or the primary payer you reconcile with weekly.',
+      ar: 'ننصح بالبدء بمنصة نفيس أو شركة التأمين الرئيسية التي تسوي معها أسبوعياً.',
+    },
+    cta: {
+      en: 'Open integrations',
+      ar: 'فتح التكاملات',
+    },
+    href: '/integrations',
+  },
+  {
+    id: 'configure-channels',
+    title: {
+      en: 'Set up stakeholder channels',
+      ar: 'إعداد قنوات أصحاب المصلحة',
+    },
+    description: {
+      en: 'Enable proactive alerts for finance, clinical reviewers, and partner hospitals.',
+      ar: 'فعّل التنبيهات الاستباقية للمالية والمراجعين الإكلينيكيين والمستشفيات الشريكة.',
+    },
+    helper: {
+      en: 'Connect Microsoft Teams or WhatsApp to broadcast rejections instantly.',
+      ar: 'قم بتوصيل Microsoft Teams أو واتساب لإرسال مرفوضات المطالبات فوراً.',
+    },
+    cta: {
+      en: 'Configure channels',
+      ar: 'تهيئة القنوات',
+    },
+    href: '/stakeholders',
+  },
+  {
+    id: 'invite-team',
+    title: {
+      en: 'Invite your operations team',
+      ar: 'دعوة فريق العمليات',
+    },
+    description: {
+      en: 'Bring claim processors, audit leads, and analytics partners into BrainSAIT.',
+      ar: 'أضف مسؤولي معالجة المطالبات وقادة التدقيق وشركاء التحليلات إلى منصة BrainSAIT.',
+    },
+    helper: {
+      en: 'Assign roles so everyone receives the right dashboards and notifications.',
+      ar: 'حدد الأدوار لضمان حصول الجميع على اللوحات والتنبيهات المناسبة.',
+    },
+    cta: {
+      en: 'Invite collaborators',
+      ar: 'دعوة المتعاونين',
+    },
+    href: '/settings/team',
+  },
 ]
 
 type MetricDatum = {
@@ -80,6 +144,91 @@ function classNames(...classes: Array<string | false | null | undefined>) {
 type Locale = 'en' | 'ar'
 
 const LOCALE_STORAGE_KEY = 'brainsait_locale'
+const ONBOARDING_PROGRESS_KEY = 'brainsait_onboarding_progress'
+
+const FOCUSABLE_ELEMENTS_SELECTOR =
+  'a[href]:not([tabindex="-1"]), button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+
+type OnboardingStep = {
+  id: string
+  title: { en: string; ar: string }
+  description: { en: string; ar: string }
+  href?: string
+  cta: { en: string; ar: string }
+  helper?: { en: string; ar: string }
+}
+
+type OnboardingCompletionOptions = {
+  shouldNavigate?: boolean
+  closeOverlay?: boolean
+}
+
+function useFocusTrap(active: boolean, ref: React.RefObject<HTMLElement>) {
+  useEffect(() => {
+    if (!active) {
+      return undefined
+    }
+
+    const container = ref.current
+    if (!container) {
+      return undefined
+    }
+
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
+
+    const focusableElements = Array.from(
+      container.querySelectorAll<HTMLElement>(FOCUSABLE_ELEMENTS_SELECTOR)
+    ).filter((element) => !element.hasAttribute('data-focus-trap-ignore'))
+
+    const firstFocusable = focusableElements[0] ?? container
+    const lastFocusable = focusableElements[focusableElements.length - 1] ?? container
+
+    const focusFirstElement = () => {
+      window.setTimeout(() => {
+        if (document.activeElement === firstFocusable) {
+          return
+        }
+        if (firstFocusable) {
+          firstFocusable.focus()
+        } else {
+          container.focus()
+        }
+      }, 0)
+    }
+
+    focusFirstElement()
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') {
+        return
+      }
+
+      if (!focusableElements.length) {
+        event.preventDefault()
+        container.focus()
+        return
+      }
+
+      const isShift = event.shiftKey
+      const current = document.activeElement as HTMLElement | null
+
+      if (!isShift && current === lastFocusable) {
+        event.preventDefault()
+        firstFocusable.focus()
+      } else if (isShift && current === firstFocusable) {
+        event.preventDefault()
+        lastFocusable.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      previouslyFocused?.focus?.()
+    }
+  }, [active, ref])
+}
 
 function ThemeToggleButton() {
   const { theme, toggleTheme } = useTheme()
@@ -332,19 +481,46 @@ function MetricRibbon({ locale }: MetricRibbonProps) {
   )
 }
 
-function MobileMenu({
-  locale,
-  setLocale,
-  onClose,
-}: {
+interface MobileMenuProps {
   locale: Locale
   setLocale: (next: Locale) => void
   onClose: () => void
-}) {
+  onStartOnboarding: () => void
+  onboardingProgressLabel: string
+}
+
+const MobileMenu = forwardRef<HTMLDivElement, MobileMenuProps>(function MobileMenu(
+  { locale, setLocale, onClose, onStartOnboarding, onboardingProgressLabel },
+  ref
+) {
   const pathname = usePathname()
+
   return (
-    <div className="lg:hidden">
-      <div className="border-t border-white/10 bg-surface-base/95 px-4 py-4 shadow-ambient backdrop-blur-xl">
+    <div
+      className="fixed inset-0 z-[70] flex flex-col bg-black/50 backdrop-blur-sm lg:hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-label={locale === 'ar' ? 'قائمة التنقل للجوال' : 'Mobile navigation'}
+    >
+      <div aria-hidden="true" className="absolute inset-0" onClick={onClose} />
+      <div
+        ref={ref}
+        tabIndex={-1}
+        className="relative mt-auto border-t border-white/10 bg-surface-base/95 px-4 py-4 shadow-ambient backdrop-blur-xl"
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            {locale === 'ar' ? 'قائمة سريعة' : 'Quick menu'}
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-base text-muted-foreground transition hover:border-accent hover:text-foreground"
+          >
+            <span aria-hidden="true">×</span>
+            <span className="sr-only">{locale === 'ar' ? 'إغلاق القائمة' : 'Close menu'}</span>
+          </button>
+        </div>
         <nav className="flex flex-col gap-3">
           {NAV_ITEMS.map((item) => (
             <Link
@@ -352,7 +528,7 @@ function MobileMenu({
               href={item.href}
               onClick={onClose}
               className={classNames(
-                'rounded-xl px-3 py-2 text-sm font-semibold transition hover:bg-white/5',
+                'rounded-xl px-3 py-2 text-sm font-semibold transition hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60',
                 pathname === item.href ? 'bg-white/5 text-foreground' : 'text-muted-foreground'
               )}
             >
@@ -360,14 +536,173 @@ function MobileMenu({
             </Link>
           ))}
         </nav>
-        <div className="mt-4 flex items-center justify-between">
-          <LocaleSwitcher locale={locale} setLocale={setLocale} />
-          <ThemeToggleButton />
+        <div className="mt-5 flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={onStartOnboarding}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-accent/10 px-4 py-2 text-sm font-semibold text-foreground transition hover:border-accent hover:bg-accent/20"
+          >
+            <span>🚀</span>
+            <span>{onboardingProgressLabel}</span>
+          </button>
+          <div className="flex items-center justify-between">
+            <LocaleSwitcher locale={locale} setLocale={setLocale} />
+            <ThemeToggleButton />
+          </div>
         </div>
       </div>
     </div>
   )
+})
+
+interface OnboardingJourneyProps {
+  locale: Locale
+  onClose: () => void
+  steps: OnboardingStep[]
+  completed: Record<string, boolean>
+  onCompleteStep: (step: OnboardingStep, options?: OnboardingCompletionOptions) => void
 }
+
+const OnboardingJourney = forwardRef<HTMLDivElement, OnboardingJourneyProps>(function OnboardingJourney(
+  { locale, onClose, steps, completed, onCompleteStep },
+  ref
+) {
+  const completedCount = steps.filter((step) => completed[step.id]).length
+  const totalSteps = steps.length
+  const progressLabel = `${completedCount}/${totalSteps}`
+
+  const heading = locale === 'ar' ? 'ابدأ خلال ثلاث خطوات' : 'Get started in three steps'
+  const closeLabel = locale === 'ar' ? 'إغلاق' : 'Close'
+  const finishLabel = completedCount === totalSteps
+    ? locale === 'ar'
+      ? 'جاهز للانطلاق'
+      : 'You are ready!'
+    : locale === 'ar'
+      ? 'متابعة لاحقاً'
+      : 'Continue later'
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={heading}
+    >
+      <div aria-hidden="true" className="absolute inset-0" onClick={onClose} />
+      <div
+        ref={ref}
+        tabIndex={-1}
+        className="relative z-10 w-full max-w-lg rounded-2xl border border-white/10 bg-surface-base/95 p-6 text-sm shadow-ambient backdrop-blur-xl"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">{heading}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {locale === 'ar'
+                ? 'أكمل الخطوات الثلاث الرئيسية لتفعيل رحلات المطالبات والتحليلات.'
+                : 'Complete three key steps to activate claims workflows and analytics.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-base text-muted-foreground transition hover:border-accent hover:text-foreground"
+          >
+            <span aria-hidden="true">×</span>
+            <span className="sr-only">{closeLabel}</span>
+          </button>
+        </div>
+        <div className="mt-5 space-y-4">
+          {steps.map((step, index) => {
+            const isCompleted = Boolean(completed[step.id])
+            return (
+              <div
+                key={step.id}
+                className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:border-accent/40"
+              >
+                <div className="flex items-start gap-4">
+                  <span
+                    className={classNames(
+                      'flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold',
+                      isCompleted
+                        ? 'bg-success/20 text-success'
+                        : 'bg-accent/15 text-accent'
+                    )}
+                  >
+                    {isCompleted ? '✓' : index + 1}
+                  </span>
+                  <div className="flex-1 space-y-2">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">
+                        {locale === 'ar' ? step.title.ar : step.title.en}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {locale === 'ar' ? step.description.ar : step.description.en}
+                      </p>
+                      {step.helper ? (
+                        <p className="mt-2 text-xs text-muted-foreground/80">
+                          {locale === 'ar' ? step.helper.ar : step.helper.en}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onCompleteStep(step)}
+                        className={classNames(
+                          'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60',
+                          isCompleted
+                            ? 'border border-success/40 bg-success/15 text-success'
+                            : 'border border-white/10 bg-accent/10 text-foreground hover:border-accent hover:bg-accent/20'
+                        )}
+                        disabled={isCompleted}
+                      >
+                        {isCompleted
+                          ? locale === 'ar'
+                            ? 'أُنجزت'
+                            : 'Completed'
+                          : locale === 'ar'
+                          ? step.cta.ar
+                          : step.cta.en}
+                      </button>
+                      {step.href ? (
+                        <Link
+                          href={step.href}
+                          className="text-xs font-medium text-accent transition hover:text-accent/80"
+                          onClick={(event) => {
+                            event.preventDefault()
+                            onCompleteStep(step, { shouldNavigate: true, closeOverlay: true })
+                          }}
+                        >
+                          {locale === 'ar' ? 'عرض التفاصيل' : 'View details'}
+                        </Link>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        <div className="mt-5 flex items-center justify-between text-xs text-muted-foreground">
+          <span>
+            {locale === 'ar'
+              ? `التقدم: ${progressLabel}`
+              : `Progress: ${progressLabel}`}
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 font-medium text-foreground transition hover:border-accent hover:text-accent"
+          >
+            <span aria-hidden="true">↩</span>
+            <span>{finishLabel}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+})
 
 export interface AppShellProps {
   children: React.ReactNode
@@ -375,10 +710,36 @@ export interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname()
+  const router = useRouter()
+  const { user } = useAuth()
   const { theme } = useTheme()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [onboardingOpen, setOnboardingOpen] = useState(false)
   const [locale, setLocale] = useState<Locale>('en')
   const handleLocale = useCallback((next: Locale) => setLocale(next), [])
+  const [onboardingCompleted, setOnboardingCompleted] = useState<Record<string, boolean>>({})
+  const mobileMenuRef = useRef<HTMLDivElement | null>(null)
+  const onboardingRef = useRef<HTMLDivElement | null>(null)
+  const onboardingLoadedRef = useRef(false)
+  const previousPathnameRef = useRef(pathname)
+
+  const onboardingStorageKey = useMemo(() => {
+    if (!user) {
+      return null
+    }
+    const rawAccountId = user?.['account_id']
+    const accountId = typeof rawAccountId === 'string' ? rawAccountId : undefined
+    const userId = typeof user.id === 'string' ? user.id : undefined
+    const userEmail = typeof user.email === 'string' ? user.email : undefined
+    const identifier = accountId ?? userId ?? userEmail
+    if (!identifier) {
+      return null
+    }
+    return `${ONBOARDING_PROGRESS_KEY}:${identifier}`
+  }, [user])
+
+  useFocusTrap(mobileOpen, mobileMenuRef)
+  useFocusTrap(onboardingOpen, onboardingRef)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -391,17 +752,127 @@ export function AppShell({ children }: AppShellProps) {
   }, [])
 
   useEffect(() => {
-    if (!mobileOpen) return
+    onboardingLoadedRef.current = false
+    if (typeof window === 'undefined') return
+    if (onboardingStorageKey) {
+      try {
+        window.localStorage.removeItem(ONBOARDING_PROGRESS_KEY)
+      } catch (error) {
+        console.warn('Failed to remove legacy onboarding progress key', error)
+      }
+    }
+    if (!onboardingStorageKey) {
+      setOnboardingCompleted({})
+      return
+    }
+    try {
+      const stored = window.localStorage.getItem(onboardingStorageKey)
+      if (stored) {
+        const parsed = JSON.parse(stored) as Record<string, boolean>
+        setOnboardingCompleted(parsed)
+      } else {
+        setOnboardingCompleted({})
+      }
+    } catch (error) {
+      console.warn('Failed to load onboarding progress', error)
+      setOnboardingCompleted({})
+    } finally {
+      onboardingLoadedRef.current = true
+    }
+  }, [onboardingStorageKey])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!onboardingStorageKey || !onboardingLoadedRef.current) return
+    try {
+      window.localStorage.setItem(onboardingStorageKey, JSON.stringify(onboardingCompleted))
+    } catch (error) {
+      console.warn('Failed to persist onboarding progress', error)
+    }
+  }, [onboardingCompleted, onboardingStorageKey])
+
+  useEffect(() => {
+    if (!mobileOpen && !onboardingOpen) return
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key !== 'Escape') {
+        return
+      }
+      if (onboardingOpen) {
+        setOnboardingOpen(false)
+      } else if (mobileOpen) {
         setMobileOpen(false)
       }
     }
     window.addEventListener('keydown', handleEscape)
     return () => window.removeEventListener('keydown', handleEscape)
-  }, [mobileOpen])
+  }, [mobileOpen, onboardingOpen])
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const shouldLockScroll = mobileOpen || onboardingOpen
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = shouldLockScroll ? 'hidden' : ''
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [mobileOpen, onboardingOpen])
+
+  useEffect(() => {
+    if (previousPathnameRef.current !== pathname && onboardingOpen) {
+      setOnboardingOpen(false)
+    }
+    previousPathnameRef.current = pathname
+  }, [pathname, onboardingOpen])
 
   const toggleMobile = useCallback(() => setMobileOpen((prev) => !prev), [])
+
+  const completedOnboardingSteps = useMemo(() => {
+    return ONBOARDING_STEPS.reduce(
+      (count, step) => (onboardingCompleted[step.id] ? count + 1 : count),
+      0
+    )
+  }, [onboardingCompleted])
+
+  const onboardingProgressLabel = useMemo(() => {
+    const total = ONBOARDING_STEPS.length
+    if (completedOnboardingSteps === 0) {
+      return locale === 'ar' ? 'بدء الإعداد السريع' : 'Start onboarding'
+    }
+    if (completedOnboardingSteps >= total) {
+      return locale === 'ar' ? 'الرحلة مكتملة' : 'Onboarding complete'
+    }
+    return locale === 'ar'
+      ? `التقدم ${completedOnboardingSteps}/${total}`
+      : `Onboarding ${completedOnboardingSteps}/${total}`
+  }, [completedOnboardingSteps, locale])
+
+  const handleStartOnboarding = useCallback(() => {
+    setOnboardingOpen(true)
+    setMobileOpen(false)
+  }, [])
+
+  const handleCompleteOnboardingStep = useCallback(
+    (step: OnboardingStep, options?: OnboardingCompletionOptions) => {
+      const shouldNavigate = options?.shouldNavigate ?? Boolean(step.href)
+      const closeOverlay = options?.closeOverlay ?? true
+
+      setOnboardingCompleted((previous) => {
+        if (previous[step.id]) {
+          return previous
+        }
+        return { ...previous, [step.id]: true }
+      })
+
+      if (closeOverlay) {
+        setOnboardingOpen(false)
+      }
+
+      if (shouldNavigate && step.href) {
+        router.push(step.href)
+      }
+    },
+    [router]
+  )
 
   return (
     <Fragment>
@@ -473,7 +944,24 @@ export function AppShell({ children }: AppShellProps) {
         </main>
       </div>
       {mobileOpen ? (
-  <MobileMenu locale={locale} setLocale={handleLocale} onClose={() => setMobileOpen(false)} />
+        <MobileMenu
+          ref={mobileMenuRef}
+          locale={locale}
+          setLocale={handleLocale}
+          onClose={() => setMobileOpen(false)}
+          onStartOnboarding={handleStartOnboarding}
+          onboardingProgressLabel={onboardingProgressLabel}
+        />
+      ) : null}
+      {onboardingOpen ? (
+        <OnboardingJourney
+          ref={onboardingRef}
+          locale={locale}
+          onClose={() => setOnboardingOpen(false)}
+          steps={ONBOARDING_STEPS}
+          completed={onboardingCompleted}
+          onCompleteStep={handleCompleteOnboardingStep}
+        />
       ) : null}
     </Fragment>
   )

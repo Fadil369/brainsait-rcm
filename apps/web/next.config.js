@@ -7,7 +7,9 @@ const nextConfig = {
     '@brainsait/compliance-reporter'
   ],
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+    NEXT_PUBLIC_API_URL:
+      process.env.NEXT_PUBLIC_API_URL ||
+      (process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : 'https://brainsait-rcm.pages.dev'),
   },
   // Disable SWC minifier (use Babel instead)
   swcMinify: false,

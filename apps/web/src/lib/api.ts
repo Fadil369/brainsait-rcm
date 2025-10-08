@@ -3,7 +3,7 @@
  * Centralized API communication layer
  */
 
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
 
 import type {
   AppealRecord,
@@ -21,29 +21,64 @@ import type {
   TrendsResponse,
 } from '@/types/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+
+const enforceHttps = (url: string): string => {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'http:' && !LOCAL_HOSTS.has(parsed.hostname)) {
+      parsed.protocol = 'https:';
+      return parsed.toString();
+    }
+    return parsed.toString();
+  } catch (error) {
+    console.warn('Unable to parse API URL, falling back to original value', error);
+    return url;
+  }
+};
+
+const DEFAULT_DEV_API_URL = 'http://localhost:8000';
+const DEFAULT_PROD_API_URL = 'https://brainsait-rcm.pages.dev';
+
+const API_URL = enforceHttps(
+  process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? DEFAULT_DEV_API_URL : DEFAULT_PROD_API_URL)
+);
+
 const API_TIMEOUT = Number(process.env.NEXT_PUBLIC_API_TIMEOUT) || 10000;
+
+let inMemoryAccessToken: string | null = null;
+
+const setAccessToken = (token: string | null) => {
+  inMemoryAccessToken = token;
+};
+
+const getAccessToken = () => inMemoryAccessToken;
 
 /**
  * API Client Configuration
  */
 class APIClient {
   private client: AxiosInstance;
+  private baseURL: string;
+  private refreshPromise: Promise<string | null> | null = null;
 
   constructor() {
+    this.baseURL = API_URL.replace(/\/$/, '');
     this.client = axios.create({
-      baseURL: API_URL,
+      baseURL: this.baseURL,
       timeout: API_TIMEOUT,
       headers: {
         'Content-Type': 'application/json',
       },
+      withCredentials: true,
     });
 
     // Request interceptor - attach auth token
     this.client.interceptors.request.use(
       (config) => {
-        const token = this.getAuthToken();
+        const token = getAccessToken();
         if (token) {
+          config.headers = config.headers ?? {};
           config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
@@ -54,66 +89,99 @@ class APIClient {
     // Response interceptor - handle errors
     this.client.interceptors.response.use(
       (response) => response,
-      (error: AxiosError) => {
-        if (error.response?.status === 401) {
-          // Unauthorized - clear token and redirect to login
-          this.clearAuthToken();
-          if (typeof window !== 'undefined') {
+      async (error: AxiosError) => {
+        const status = error.response?.status;
+        const originalRequest = error.config as (AxiosRequestConfig & { __isRetryRequest?: boolean }) | undefined;
+
+        if (status === 401 && originalRequest && !originalRequest.__isRetryRequest) {
+          setAccessToken(null);
+
+          const newToken = await this.refreshAccessToken();
+
+          if (newToken) {
+            originalRequest.headers = originalRequest.headers ?? {};
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            originalRequest.__isRetryRequest = true;
+            return this.client.request(originalRequest);
+          }
+
+          if (typeof window !== 'undefined' && !originalRequest.url?.includes('/api/auth/login')) {
             window.location.href = '/login';
           }
         }
+
         return Promise.reject(error);
       }
     );
   }
 
-  /**
-   * Get authentication token from localStorage
-   */
-  private getAuthToken(): string | null {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem('brainsait_auth_token');
+  private unwrapResponse<T>(payload: unknown): T {
+    if (payload && typeof payload === 'object' && 'data' in (payload as Record<string, unknown>)) {
+      return (payload as { data: T }).data;
+    }
+    return payload as T;
   }
 
-  /**
-   * Clear authentication token
-   */
-  private clearAuthToken(): void {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('brainsait_auth_token');
+  private async refreshAccessToken(): Promise<string | null> {
+    if (this.refreshPromise) {
+      return this.refreshPromise;
     }
-  }
 
-  /**
-   * Set authentication token
-   */
-  setAuthToken(token: string): void {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('brainsait_auth_token', token);
-    }
+    this.refreshPromise = axios
+      .post(
+        `${this.baseURL}/api/auth/refresh`,
+        {},
+        {
+          withCredentials: true,
+          timeout: API_TIMEOUT,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+      .then((response) => {
+        const data = this.unwrapResponse<{ access_token?: string }>(response.data);
+        if (data?.access_token) {
+          setAccessToken(data.access_token);
+          return data.access_token;
+        }
+        return null;
+      })
+      .catch((refreshError) => {
+        console.error('Access token refresh failed:', refreshError);
+        return null;
+      })
+      .finally(() => {
+        this.refreshPromise = null;
+      });
+
+    return this.refreshPromise;
   }
 
   // ============ Authentication Endpoints ============
 
   async login(email: string, password: string): Promise<LoginResponse> {
     const response = await this.client.post('/api/auth/login', { email, password });
-    if (response.data.access_token) {
-      this.setAuthToken(response.data.access_token);
+    const data = this.unwrapResponse<LoginResponse>(response.data);
+
+    if (data?.access_token) {
+      setAccessToken(data.access_token);
     }
-    return response.data as LoginResponse;
+
+    return data;
   }
 
   async logout(): Promise<void> {
     try {
-      await this.client.post('/api/auth/logout');
+      await this.client.post('/api/auth/logout', {});
     } finally {
-      this.clearAuthToken();
+      setAccessToken(null);
     }
   }
 
   async getCurrentUser(): Promise<AuthUser> {
     const response = await this.client.get('/api/auth/me');
-    return response.data as AuthUser;
+    return this.unwrapResponse<AuthUser>(response.data);
   }
 
   // ============ Rejections Endpoints ============
@@ -272,3 +340,5 @@ export const apiClient = new APIClient();
 
 // Export class for testing
 export { APIClient };
+
+export const getAccessTokenSnapshot = () => getAccessToken();

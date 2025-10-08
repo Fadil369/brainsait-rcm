@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { authAPI } from '@/lib/auth/api';
+import { apiClient } from '@/lib/api';
 
 export default function LoginPage() {
   const [identifier, setIdentifier] = useState('');
@@ -19,12 +20,14 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const tokens = await authAPI.login({ identifier, password });
-      localStorage.setItem('access_token', tokens.access_token);
-      localStorage.setItem('refresh_token', tokens.refresh_token);
+      await apiClient.login(identifier, password);
       router.push('/dashboard');
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Login failed');
+      if (error instanceof Error) {
+        setError(error.message || 'Login failed');
+      } else {
+        setError('Login failed');
+      }
     } finally {
       setIsLoading(false);
     }

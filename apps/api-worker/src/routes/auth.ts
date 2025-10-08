@@ -1,8 +1,25 @@
 import { Hono } from 'hono';
+import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
+
 import type { Env, User } from '../types';
 import { hashPassword, verifyPassword, generateAccessToken, generateRefreshToken, generateId, verifyToken } from '../lib/auth';
 import { logAudit } from '../lib/audit';
 import { authMiddleware } from '../middleware/auth';
+
+const REFRESH_COOKIE_NAME = 'brainsait_refresh_token';
+
+const getRefreshCookieOptions = (env: Env) => {
+  const maxAge = parseInt(env.REFRESH_TOKEN_EXPIRE_DAYS || '7') * 24 * 60 * 60;
+  const secure = (env.ENVIRONMENT || 'production').toLowerCase() !== 'development';
+
+  return {
+    httpOnly: true as const,
+    secure,
+    sameSite: 'Strict' as const,
+    path: '/',
+    maxAge,
+  };
+};
 
 const auth = new Hono<{ Bindings: Env }>();
 
@@ -162,6 +179,9 @@ auth.post('/login', async (c) => {
       expirationTtl: parseInt(c.env.REFRESH_TOKEN_EXPIRE_DAYS || '7') * 24 * 60 * 60,
     });
 
+    // Persist refresh token in secure HttpOnly cookie
+    setCookie(c, REFRESH_COOKIE_NAME, refreshToken, getRefreshCookieOptions(c.env));
+
     // Audit successful login
     await logAudit(c.env, {
       user_id: user.id,
@@ -180,7 +200,6 @@ auth.post('/login', async (c) => {
       data: {
         user: userWithoutPassword,
         access_token: accessToken,
-        refresh_token: refreshToken,
         token_type: 'Bearer',
         expires_in: parseInt(c.env.ACCESS_TOKEN_EXPIRE_MINUTES) * 60,
       },
@@ -197,8 +216,18 @@ auth.post('/login', async (c) => {
  */
 auth.post('/refresh', async (c) => {
   try {
-    const body = await c.req.json();
-    const { refresh_token } = body;
+    let refresh_token: string | undefined;
+
+    try {
+      const body = await c.req.json();
+      refresh_token = body?.refresh_token;
+    } catch (error) {
+      // No JSON body provided – acceptable when relying on cookie-based refresh
+    }
+
+    if (!refresh_token) {
+      refresh_token = getCookie(c, REFRESH_COOKIE_NAME) ?? undefined;
+    }
 
     if (!refresh_token) {
       return c.json({ success: false, error: 'Refresh token required' }, 400);
@@ -235,6 +264,9 @@ auth.post('/refresh', async (c) => {
       .bind(newAccessToken, refresh_token)
       .run();
 
+    // Refresh cookie expiry window
+    setCookie(c, REFRESH_COOKIE_NAME, refresh_token, getRefreshCookieOptions(c.env));
+
     const { password_hash, ...userWithoutPassword } = user;
 
     return c.json({
@@ -260,8 +292,17 @@ auth.post('/logout', authMiddleware, async (c) => {
   const user = c.get('user') as User;
 
   try {
-    const body = await c.req.json();
-    const { refresh_token } = body;
+    let refresh_token: string | undefined;
+    try {
+      const body = await c.req.json();
+      refresh_token = body?.refresh_token;
+    } catch (error) {
+      // empty body is allowed for logout relying on cookie context
+    }
+
+    if (!refresh_token) {
+      refresh_token = getCookie(c, REFRESH_COOKIE_NAME) ?? undefined;
+    }
 
     if (refresh_token) {
       // Revoke specific session
@@ -269,6 +310,13 @@ auth.post('/logout', authMiddleware, async (c) => {
         .bind(refresh_token, user.id)
         .run();
     }
+
+    const cookieOptions = getRefreshCookieOptions(c.env);
+    deleteCookie(c, REFRESH_COOKIE_NAME, {
+      path: cookieOptions.path,
+      secure: cookieOptions.secure,
+      sameSite: cookieOptions.sameSite,
+    });
 
     // Audit logout
     await logAudit(c.env, {

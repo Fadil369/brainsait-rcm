@@ -73,6 +73,54 @@ const formatNumber = (value) => {
 
 const doc = document;
 
+const createElement = (tag, className, text) => {
+  const element = doc.createElement(tag);
+  if (className) {
+    element.className = className;
+  }
+  if (typeof text === 'string') {
+    element.textContent = text;
+  }
+  return element;
+};
+
+const replaceContent = (container, nodes) => {
+  if (!container) return;
+  container.replaceChildren(...nodes);
+};
+
+const renderBadgeMessage = (container, text) => {
+  replaceContent(container, [createElement('p', 'badge', text)]);
+};
+
+const renderPanelSummary = (container, title, items = []) => {
+  const panel = createElement('div', 'glass-panel');
+  panel.appendChild(createElement('p', 'text-secondary', title));
+
+  if (items.length > 0) {
+    const list = createElement('ul', 'feature-list');
+    items.forEach(({ label, value }) => {
+      const listItem = doc.createElement('li');
+      listItem.append(document.createTextNode(`${label}: `));
+      const strong = createElement('strong', '', value);
+      listItem.appendChild(strong);
+      list.appendChild(listItem);
+    });
+    panel.appendChild(list);
+  }
+
+  replaceContent(container, [panel]);
+};
+
+const renderPanelError = (container, message, detail) => {
+  const panel = createElement('div', 'glass-panel');
+  panel.appendChild(createElement('p', 'text-secondary', message));
+  if (detail) {
+    panel.appendChild(createElement('small', 'text-muted', detail));
+  }
+  replaceContent(container, [panel]);
+};
+
 function setMeta(key, value) {
   const target = doc.querySelector(`[data-meta="${key}"]`);
   if (target) {
@@ -126,7 +174,7 @@ async function refreshLiveData(baseUrl) {
   setCheckingStates();
   const results = doc.querySelector(selectors.playgroundResults);
   if (results) {
-    results.innerHTML = `<p class="badge">${getCopy('syncStarted')}</p>`;
+    renderBadgeMessage(results, getCopy('syncStarted'));
   }
 
   try {
@@ -172,16 +220,11 @@ async function refreshLiveData(baseUrl) {
     setMeta('last-refreshed', formatDate(now));
 
     if (results) {
-      results.innerHTML = `
-        <div class="glass-panel">
-          <p class="text-secondary">${getCopy('syncSuccess')}</p>
-          <ul class="feature-list">
-            <li>API health: <strong>${health?.status}</strong></li>
-            <li>Pending letters: <strong>${pendingLetters}</strong></li>
-            <li>Fraud alerts: <strong>${fraudAlerts}</strong></li>
-          </ul>
-        </div>
-      `;
+      renderPanelSummary(results, getCopy('syncSuccess'), [
+        { label: 'API health', value: String(health?.status ?? 'unknown') },
+        { label: 'Pending letters', value: String(pendingLetters) },
+        { label: 'Fraud alerts', value: String(fraudAlerts) }
+      ]);
     }
   } catch (error) {
     console.error('Demo refresh failed', error);
@@ -190,13 +233,9 @@ async function refreshLiveData(baseUrl) {
     setStatus('letters', { tone: 'critical', message: getCopy('offline') });
     setStatus('alerts', { tone: 'critical', message: getCopy('offline') });
 
-    if (doc.querySelector(selectors.playgroundResults)) {
-      doc.querySelector(selectors.playgroundResults).innerHTML = `
-        <div class="glass-panel">
-          <p class="text-secondary">${getCopy('syncFailed')}</p>
-          <small class="text-muted">${error.message}</small>
-        </div>
-      `;
+    const target = doc.querySelector(selectors.playgroundResults);
+    if (target) {
+      renderPanelError(target, getCopy('syncFailed'), error.message);
     }
   }
 }
@@ -278,11 +317,7 @@ function handleActions() {
         window.open('/app/dashboard', '_blank', 'noopener');
       }
 
-      results.innerHTML = `
-        <div class="glass-panel">
-          <p class="text-secondary">${messages[action] || 'Action queued inside demo shell.'}</p>
-        </div>
-      `;
+      renderPanelSummary(results, messages[action] || 'Action queued inside demo shell.');
     });
   });
 }

@@ -1,5 +1,24 @@
+import { apiClient, getAccessTokenSnapshot } from '@/lib/api';
+
 // Authentication API client
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+
+const resolveApiBaseUrl = () => {
+  const raw = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : 'https://brainsait-rcm.pages.dev');
+
+  try {
+    const url = new URL(raw);
+    if (url.protocol === 'http:' && !LOCAL_HOSTS.has(url.hostname)) {
+      url.protocol = 'https:';
+    }
+    return url.toString().replace(/\/$/, '');
+  } catch (error) {
+    console.warn('Unable to parse auth API URL, using fallback value', error);
+    return raw.replace(/\/$/, '');
+  }
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 export interface LoginCredentials {
   identifier: string;
@@ -29,9 +48,9 @@ export interface OTPVerify {
 
 export interface TokenResponse {
   access_token: string;
-  refresh_token: string;
-  token_type: string;
-  expires_in: number;
+  refresh_token?: string;
+  token_type?: string;
+  expires_in?: number;
 }
 
 export interface User {
@@ -55,7 +74,7 @@ class AuthAPI {
     };
 
     if (includeAuth) {
-      const token = localStorage.getItem('access_token');
+      const token = getAccessTokenSnapshot();
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
@@ -69,6 +88,7 @@ class AuthAPI {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify(data),
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -80,18 +100,13 @@ class AuthAPI {
   }
 
   async login(credentials: LoginCredentials): Promise<TokenResponse> {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify(credentials),
-    });
+    const result = await apiClient.login(credentials.identifier, credentials.password);
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Login failed');
-    }
-
-    return response.json();
+    return {
+      access_token: result?.access_token ?? '',
+      token_type: result?.token_type ?? 'Bearer',
+      expires_in: result?.expires_in,
+    };
   }
 
   async requestOTP(data: OTPRequest): Promise<{ message: string; expires_in: number }> {
@@ -99,6 +114,7 @@ class AuthAPI {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify(data),
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -114,6 +130,7 @@ class AuthAPI {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify(data),
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -151,6 +168,7 @@ class AuthAPI {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify({ refresh_token: refreshToken }),
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -161,26 +179,16 @@ class AuthAPI {
   }
 
   async getCurrentUser(): Promise<User> {
-    const response = await fetch(`${API_BASE_URL}/auth/me`, {
-      headers: this.getHeaders(true),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch user info');
-    }
-
-    return response.json();
+    return apiClient.getCurrentUser() as Promise<User>;
   }
 
-  async logout(refreshToken: string): Promise<void> {
+  async logout(refreshToken?: string): Promise<void> {
     await fetch(`${API_BASE_URL}/auth/logout`, {
       method: 'POST',
       headers: this.getHeaders(true),
-      body: JSON.stringify({ refresh_token: refreshToken }),
+      body: JSON.stringify(refreshToken ? { refresh_token: refreshToken } : {}),
+      credentials: 'include',
     });
-
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
   }
 
   async changePassword(oldPassword: string, newPassword: string): Promise<void> {
@@ -191,6 +199,7 @@ class AuthAPI {
         old_password: oldPassword,
         new_password: newPassword,
       }),
+      credentials: 'include',
     });
 
     if (!response.ok) {

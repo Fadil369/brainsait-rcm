@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 
+import { getAccessTokenSnapshot } from '@/lib/api';
 import { ClaimValidationRequest, ClaimValidationResponse } from '@/types/claims';
 
 interface UseClaimsValidationReturn {
@@ -25,17 +26,29 @@ export function useClaimsValidation(): UseClaimsValidationReturn {
     setError(null);
     
     try {
-      // TODO: Replace with actual API endpoint from environment variables
-      const apiUrl = process.env.NEXT_PUBLIC_CLAIMS_API_URL || 'http://localhost:8000';
-      
+      const rawUrl = process.env.NEXT_PUBLIC_CLAIMS_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : 'https://brainsait-rcm.pages.dev');
+      let apiUrl: string;
+      try {
+        const parsed = new URL(rawUrl);
+        if (parsed.protocol === 'http:' && parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1') {
+          parsed.protocol = 'https:';
+        }
+        apiUrl = parsed.toString().replace(/\/$/, '');
+      } catch (parseError) {
+        console.warn('Invalid NEXT_PUBLIC_CLAIMS_API_URL value, falling back to provided string');
+        apiUrl = rawUrl.replace(/\/$/, '');
+      }
+
+      const token = getAccessTokenSnapshot();
+
       const response = await fetch(`${apiUrl}/api/v1/claims/validate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // TODO: Add authentication header
-          // 'Authorization': `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify(request),
+        credentials: 'include',
       });
       
       if (!response.ok) {
