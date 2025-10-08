@@ -3,6 +3,8 @@ import { Inter, Manrope, Noto_Sans_Arabic } from 'next/font/google'
 
 import './globals.css'
 import { AppShell } from '@/components/layout/AppShell'
+import { ToastContainer } from '@/components/ui/Toast'
+import { AuthProvider } from '@/lib/auth/context'
 import { DashboardDataProvider } from '@/providers/DashboardDataProvider'
 import { ThemeProvider } from '@/providers/ThemeProvider'
 
@@ -29,9 +31,12 @@ export default function RootLayout({
     <html lang="en" data-theme="dark" suppressHydrationWarning>
       <body className={`${inter.variable} ${manrope.variable} ${notoSansArabic.variable} font-sans antialiased`}>
         <ThemeProvider locale="en" defaultTheme="dark">
-          <DashboardDataProvider>
-            <AppShell>{children}</AppShell>
-          </DashboardDataProvider>
+          <AuthProvider>
+            <DashboardDataProvider>
+              <AppShell>{children}</AppShell>
+              <ToastContainer position="top-right" />
+            </DashboardDataProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
