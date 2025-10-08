@@ -17,6 +17,10 @@ from middleware import SecurityMiddleware
 @pytest.fixture
 def test_app():
     """Create a test FastAPI app with security middleware"""
+    # Clear rate limit storage before each test
+    import middleware
+    middleware._rate_limit_storage.clear()
+    
     app = FastAPI()
     
     # Add security middleware with lower limits for testing
