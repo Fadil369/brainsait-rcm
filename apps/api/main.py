@@ -742,16 +742,20 @@ async def login(request: LoginRequest, db = Depends(get_database)):
         raise HTTPException(status_code=500, detail="Authentication failed") from exc
 
 @app.post("/api/auth/logout")
-async def logout(current_user: "TokenData" = Depends("get_current_user"), db = Depends(get_database)):
+async def logout(credentials: HTTPAuthorizationCredentials = Security(security), db = Depends(get_database)):
     """Logout user"""
+    from auth import decode_access_token
+    current_user = decode_access_token(credentials.credentials)
     await _audit_log(db, "LOGOUT", current_user.user_id, {
         "username": current_user.username
     })
     return {"message": "Successfully logged out"}
 
 @app.get("/api/auth/me")
-async def get_current_user_info(current_user: "TokenData" = Depends("get_current_user")):
+async def get_current_user_info(credentials: HTTPAuthorizationCredentials = Security(security)):
     """Get current user information"""
+    from auth import decode_access_token
+    current_user = decode_access_token(credentials.credentials)
     return {
         "user_id": current_user.user_id,
         "username": current_user.username,
