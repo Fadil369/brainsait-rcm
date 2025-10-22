@@ -13,7 +13,7 @@
   "author": "BrainSAIT",
   "license": "MIT",
   "dependencies": {
-    "hono": "^4.0.0",
+    "hono": "^4.10.2",
     "bcryptjs": "^2.4.3",
     "jose": "^5.2.0",
     "zod": "^3.22.4"
