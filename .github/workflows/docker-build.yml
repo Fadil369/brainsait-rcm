@@ -1,0 +1,338 @@
+name: DEPLOYMENTLINC - Release Management (MCP + Notion Approval)
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+
+env:
+  MCP_GATEWAY_URL: ${{ secrets.MCP_GATEWAY_URL }}
+  NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+jobs:
+  deploymentlinc-prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      env_target: ${{ steps.version.outputs.env_target }}
+      notion_page_id: ${{ steps.notion-create.outputs.page_id }}
+    
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Parse version and environment
+        id: version
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          
+          # Determine environment based on tag
+          if [[ $VERSION == *"-rc"* ]]; then
+            ENV_TARGET="staging"
+          elif [[ $VERSION == *"-dev"* ]]; then
+            ENV_TARGET="dev"
+          else
+            ENV_TARGET="production"
+          fi
+          echo "env_target=${ENV_TARGET}" >> $GITHUB_OUTPUT
+          echo "Deployment target: ${ENV_TARGET}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Run tests
+        run: |
+          if [ -f "package.json" ]; then
+            npm install && npm test
+          elif [ -f "requirements.txt" ]; then
+            pip install -r requirements.txt && python -m pytest
+          fi
+
+      - name: Build Docker image
+        id: docker-build
+        run: |
+          REPO_NAME=$(echo ${{ github.repository }} | cut -d'/' -f2)
+          IMAGE="fadil369/${REPO_NAME}:${{ steps.version.outputs.version }}"
+          
+          docker build -t ${IMAGE} \
+            --build-arg VERSION=${{ steps.version.outputs.version }} \
+            --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+            --build-arg VCS_REF=${{ github.sha }} \
+            .
+          
+          echo "image=${IMAGE}" >> $GITHUB_OUTPUT
+          docker image inspect ${IMAGE}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PAT }}
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ steps.docker-build.outputs.image }}
+          docker tag ${{ steps.docker-build.outputs.image }} fadil369/${REPO_NAME}:latest
+          docker push fadil369/${REPO_NAME}:latest
+
+      - name: Create Notion deployment page
+        id: notion-create
+        run: |
+          PAGE_ID=$(curl -s -X POST https://api.notion.com/v1/pages \
+            -H "Authorization: Bearer ${NOTION_API_KEY}" \
+            -H "Notion-Version: 2022-06-28" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"parent\": { \"database_id\": \"${{ secrets.NOTION_DEPLOYMENTS_DB_ID }}\" },
+              \"properties\": {
+                \"Name\": { \"title\": [{ \"text\": { \"content\": \"Deploy ${{ steps.version.outputs.version }} to ${{ steps.version.outputs.env_target }}\" } }] },
+                \"Version\": { \"rich_text\": [{ \"text\": { \"content\": \"${{ steps.version.outputs.version }}\" } }] },
+                \"Environment\": { \"select\": { \"name\": \"${{ steps.version.outputs.env_target }}\" } },
+                \"Status\": { \"select\": { \"name\": \"Preparing\" } },
+                \"Docker Image\": { \"rich_text\": [{ \"text\": { \"content\": \"${{ steps.docker-build.outputs.image }}\" } }] },
+                \"Commit SHA\": { \"rich_text\": [{ \"text\": { \"content\": \"${{ github.sha }}\" } }] },
+                \"Created At\": { \"date\": { \"start\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" } }
+              }
+            }" | jq -r '.id')
+          
+          echo "page_id=${PAGE_ID}" >> $GITHUB_OUTPUT
+          echo "Notion page created: ${PAGE_ID}" >> $GITHUB_STEP_SUMMARY
+
+  deploymentlinc-analyze:
+    needs: deploymentlinc-prepare
+    runs-on: ubuntu-latest
+    if: success()
+    outputs:
+      risk_score: ${{ steps.claude-analysis.outputs.risk_score }}
+      deployment_plan: ${{ steps.claude-analysis.outputs.plan }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Analyze deployment risk
+        id: claude-analysis
+        run: |
+          PROMPT=$(cat <<'EOF'
+          You are DEPLOYMENTLINC, a deployment risk assessment agent.
+
+          **Release Information:**
+          - Version: ${{ needs.deploymentlinc-prepare.outputs.version }}
+          - Target Environment: ${{ needs.deploymentlinc-prepare.outputs.env_target }}
+          - Changes: $(git log --oneline $(git describe --tags --abbrev=0 2>/dev/null || echo 'HEAD~10')..HEAD | head -10)
+
+          **Analyze:**
+          1. Breaking changes in code/schema
+          2. Database migration risk
+          3. Infrastructure changes
+          4. HIPAA/compliance impact
+          5. Rollback complexity
+
+          **Response (JSON):**
+          {
+            "risk_score": 0-10,
+            "can_auto_deploy": true|false,
+            "requires_approval": ["infra", "compliance", "ceo"],
+            "deployment_plan": "step-by-step instructions",
+            "rollback_procedure": "emergency rollback steps",
+            "estimated_duration_minutes": 15,
+            "confidence": 0.95
+          }
+          EOF
+          )
+
+          RESPONSE=$(curl -s -X POST https://api.anthropic.com/v1/messages \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: ${ANTHROPIC_API_KEY}" \
+            -d "{
+              \"model\": \"claude-sonnet-4-20250514\",
+              \"max_tokens\": 2000,
+              \"messages\": [{
+                \"role\": \"user\",
+                \"content\": \"$(echo "$PROMPT" | jq -Rs .)\"
+              }]
+            }")
+
+          RISK_SCORE=$(echo "$RESPONSE" | jq -r '.content[0].text' | jq -r '.risk_score')
+          PLAN=$(echo "$RESPONSE" | jq -r '.content[0].text' | jq -c '.deployment_plan')
+
+          echo "risk_score=${RISK_SCORE}" >> $GITHUB_OUTPUT
+          echo "plan=${PLAN}" >> $GITHUB_OUTPUT
+
+      - name: Update Notion with risk assessment
+        run: |
+          curl -s -X PATCH https://api.notion.com/v1/pages/${{ needs.deploymentlinc-prepare.outputs.notion_page_id }} \
+            -H "Authorization: Bearer ${NOTION_API_KEY}" \
+            -H "Notion-Version: 2022-06-28" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"properties\": {
+                \"Risk Score\": { \"number\": ${{ steps.claude-analysis.outputs.risk_score }} },
+                \"Status\": { \"select\": { \"name\": \"Awaiting Approval\" } }
+              }
+            }"
+
+  deploymentlinc-approval:
+    needs: [deploymentlinc-prepare, deploymentlinc-analyze]
+    runs-on: ubuntu-latest
+    if: needs.deploymentlinc-prepare.outputs.env_target != 'dev'
+    environment:
+      name: ${{ needs.deploymentlinc-prepare.outputs.env_target }}
+      url: https://brainsait.org
+
+    steps:
+      - name: Check Notion approval status
+        id: check-approval
+        run: |
+          # Poll Notion page for approval checkboxes
+          # If production: require CEO + Compliance + On-call approvals
+          # If staging: require On-call approval
+          
+          PAGE_ID="${{ needs.deploymentlinc-prepare.outputs.notion_page_id }}"
+          
+          # Get page properties
+          PAGE=$(curl -s -X GET "https://api.notion.com/v1/pages/${PAGE_ID}" \
+            -H "Authorization: Bearer ${NOTION_API_KEY}" \
+            -H "Notion-Version: 2022-06-28")
+          
+          # Check approval fields
+          INFRA_APPROVED=$(echo "$PAGE" | jq '.properties["Approved by On-Call"]?.checkbox // false')
+          COMPLIANCE_APPROVED=$(echo "$PAGE" | jq '.properties["Approved by Compliance"]?.checkbox // false')
+          CEO_APPROVED=$(echo "$PAGE" | jq '.properties["Approved by CEO"]?.checkbox // false')
+          
+          echo "infra_approved=${INFRA_APPROVED}" >> $GITHUB_OUTPUT
+          echo "compliance_approved=${COMPLIANCE_APPROVED}" >> $GITHUB_OUTPUT
+          echo "ceo_approved=${CEO_APPROVED}" >> $GITHUB_OUTPUT
+          
+          # For staging: only infra needed
+          # For prod: all three required
+          if [[ "${{ needs.deploymentlinc-prepare.outputs.env_target }}" == "staging" ]]; then
+            if [[ "${INFRA_APPROVED}" == "true" ]]; then
+              echo "approved=true" >> $GITHUB_OUTPUT
+            else
+              echo "approved=false" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          else
+            if [[ "${INFRA_APPROVED}" == "true" ]] && [[ "${COMPLIANCE_APPROVED}" == "true" ]] && [[ "${CEO_APPROVED}" == "true" ]]; then
+              echo "approved=true" >> $GITHUB_OUTPUT
+            else
+              echo "approved=false" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          fi
+
+      - name: Fail if not approved
+        if: steps.check-approval.outputs.approved != 'true'
+        run: |
+          echo "❌ Deployment not approved in Notion"
+          echo "Required approvals:"
+          echo "  - Infrastructure: ${{ steps.check-approval.outputs.infra_approved }}"
+          echo "  - Compliance: ${{ steps.check-approval.outputs.compliance_approved }}"
+          echo "  - CEO: ${{ steps.check-approval.outputs.ceo_approved }}"
+          exit 1
+
+  deploymentlinc-execute:
+    needs: [deploymentlinc-prepare, deploymentlinc-analyze, deploymentlinc-approval]
+    runs-on: ubuntu-latest
+    if: success()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Cloudflare Pages
+        if: needs.deploymentlinc-prepare.outputs.env_target == 'production'
+        run: |
+          npm install -g wrangler
+          wrangler deploy \
+            --compatibility-date=2025-04-01 \
+            --env=${{ needs.deploymentlinc-prepare.outputs.env_target }}
+
+      - name: Deploy to Docker Swarm / Kubernetes
+        if: needs.deploymentlinc-prepare.outputs.env_target != 'production'
+        run: |
+          # Update deployment manifest with new image
+          IMAGE_TAG="${{ needs.deploymentlinc-prepare.outputs.version }}"
+          
+          # For dev/staging: Update docker-compose
+          if [ -f "docker-compose.yml" ]; then
+            sed -i "s|fadil369/.*:.*|fadil369/app:${IMAGE_TAG}|g" docker-compose.yml
+            docker-compose -f docker-compose.yml up -d
+          fi
+
+      - name: Run smoke tests
+        run: |
+          # Health checks
+          RETRIES=5
+          for i in $(seq 1 $RETRIES); do
+            if curl -f https://brainsait.org/health; then
+              echo "✅ Health check passed"
+              break
+            fi
+            if [ $i -eq $RETRIES ]; then
+              echo "❌ Health check failed after $RETRIES attempts"
+              exit 1
+            fi
+            sleep 10
+          done
+
+      - name: Update Notion - Deployment Complete
+        if: success()
+        run: |
+          curl -s -X PATCH https://api.notion.com/v1/pages/${{ needs.deploymentlinc-prepare.outputs.notion_page_id }} \
+            -H "Authorization: Bearer ${NOTION_API_KEY}" \
+            -H "Notion-Version: 2022-06-28" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"properties\": {
+                \"Status\": { \"select\": { \"name\": \"Deployed\" } },
+                \"Deployed At\": { \"date\": { \"start\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" } }
+              }
+            }"
+
+      - name: Notify Slack
+        if: always()
+        uses: slackapi/slack-github-action@v1
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+          payload: |
+            {
+              "text": "Deployment complete: v${{ needs.deploymentlinc-prepare.outputs.version }} → ${{ needs.deploymentlinc-prepare.outputs.env_target }}"
+            }
+
+  deploymentlinc-rollback:
+    needs: [deploymentlinc-prepare, deploymentlinc-execute]
+    runs-on: ubuntu-latest
+    if: failure()
+
+    steps:
+      - name: Trigger emergency rollback
+        run: |
+          echo "⚠️ Deployment failed, triggering rollback..."
+          
+          # Rollback to previous version
+          curl -X POST https://api.github.com/repos/${{ github.repository }}/dispatches \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -d "{\"event_type\": \"deployment-rollback\", \"client_payload\": {\"version\": \"previous\", \"environment\": \"${{ needs.deploymentlinc-prepare.outputs.env_target }}\"}}"
+
+      - name: Create incident in Notion
+        run: |
+          curl -X POST https://api.notion.com/v1/pages \
+            -H "Authorization: Bearer ${NOTION_API_KEY}" \
+            -H "Notion-Version: 2022-06-28" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"parent\": { \"database_id\": \"${{ secrets.NOTION_INCIDENTS_DB_ID }}\" },
+              \"properties\": {
+                \"Name\": { \"title\": [{ \"text\": { \"content\": \"🔴 Deployment Failed: v${{ needs.deploymentlinc-prepare.outputs.version }}\" } }] },
+                \"Severity\": { \"select\": { \"name\": \"High\" } },
+                \"Type\": { \"select\": { \"name\": \"Deployment\" } }
+              }
+            }"
