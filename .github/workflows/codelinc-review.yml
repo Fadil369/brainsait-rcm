@@ -1,0 +1,278 @@
+name: CODELINC - AI Code Review (MCP-Integrated)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'src/**'
+      - 'packages/**'
+      - 'Dockerfile'
+      - '.github/workflows/**'
+  pull_request_review:
+    types: [requested]
+
+env:
+  MCP_GATEWAY_URL: ${{ secrets.MCP_GATEWAY_URL }}
+  CLAUDE_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+
+concurrency:
+  group: codelinc-review-${{ github.pr_number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  codelinc-analysis:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+
+    outputs:
+      risk_score: ${{ steps.claude-review.outputs.risk_score }}
+      decision: ${{ steps.claude-review.outputs.decision }}
+      has_hipaa_violations: ${{ steps.hipaa-check.outputs.violations_found }}
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Checkout base branch for comparison
+        run: git fetch origin ${{ github.event.pull_request.base.ref }}
+
+      - name: Extract PR diff
+        id: diff
+        run: |
+          git diff origin/${{ github.event.pull_request.base.ref }} HEAD > /tmp/pr.diff
+          DIFF_SIZE=$(wc -c < /tmp/pr.diff)
+          echo "diff_size=${DIFF_SIZE}" >> $GITHUB_OUTPUT
+          
+          # Get summary
+          echo "## Diff Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Files changed: $(git diff --name-only origin/${{ github.event.pull_request.base.ref }} HEAD | wc -l)" >> $GITHUB_STEP_SUMMARY
+          echo "Insertions: $(git diff --numstat origin/${{ github.event.pull_request.base.ref }} HEAD | awk '{s+=$1} END {print s}')" >> $GITHUB_STEP_SUMMARY
+
+      - name: Analyze for HIPAA scope
+        id: hipaa-check
+        run: |
+          # Check for PHI-related code patterns
+          PATTERNS=(
+            "Patient\|patient_id\|patientId"
+            "PHI\|phi_data"
+            "HIPAA\|hipaa"
+            "SSN\|social.security"
+            "MRN\|medical.record"
+            "Claim\|claim_"
+            "insurance\|Insurance"
+          )
+
+          HIPAA_FILES=0
+          for pattern in "${PATTERNS[@]}"; do
+            if grep -r "$pattern" src/ 2>/dev/null | head -5; then
+              ((HIPAA_FILES++))
+            fi
+          done
+
+          if [ $HIPAA_FILES -gt 0 ]; then
+            echo "violations_found=true" >> $GITHUB_OUTPUT
+            echo "hipaa_scope=CRITICAL" >> $GITHUB_OUTPUT
+          else
+            echo "violations_found=false" >> $GITHUB_OUTPUT
+            echo "hipaa_scope=LOW" >> $GITHUB_OUTPUT
+          fi
+
+          echo "HIPAA files touched: $HIPAA_FILES" >> $GITHUB_STEP_SUMMARY
+
+      - name: Get test coverage report
+        id: coverage
+        continue-on-error: true
+        run: |
+          if [ -f "coverage/coverage-summary.json" ]; then
+            COVERAGE=$(jq '.total.lines.pct' coverage/coverage-summary.json)
+            echo "coverage_percent=${COVERAGE}" >> $GITHUB_OUTPUT
+          else
+            echo "coverage_percent=unknown" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Call Claude API via MCP Gateway
+        id: claude-review
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_DESCRIPTION: ${{ github.event.pull_request.body }}
+          HIPAA_SCOPE: ${{ steps.hipaa-check.outputs.hipaa_scope }}
+          TEST_COVERAGE: ${{ steps.coverage.outputs.coverage_percent }}
+          FILES_CHANGED: ${{ steps.diff.outputs.diff_size }}
+        run: |
+          # Create request payload for Claude via MCP Gateway
+          PROMPT=$(cat <<'EOF'
+          You are CODELINC, an AI code review agent for BrainSAIT's healthcare platform.
+
+          **PR Review Request:**
+          - Title: ${{ env.PR_TITLE }}
+          - Author: ${{ env.PR_AUTHOR }}
+          - Description: ${{ env.PR_DESCRIPTION }}
+
+          **Code Analysis Context:**
+          - HIPAA Scope: ${{ env.HIPAA_SCOPE }}
+          - Test Coverage: ${{ env.TEST_COVERAGE }}%
+          - Diff Size: ${{ env.FILES_CHANGED }} bytes
+
+          **Your Task:**
+          Analyze the PR for:
+          1. HIPAA/Healthcare compliance violations
+          2. Security vulnerabilities (encryption, auth, data access)
+          3. NPHIES/FHIR R4 schema issues
+          4. Code quality (best practices, patterns)
+          5. Test coverage adequacy
+          6. Risk assessment
+
+          **Response Format (STRICT JSON):**
+          {
+            "risk_score": 0-10,
+            "decision": "APPROVE" | "REQUEST_REVIEW" | "BLOCK",
+            "blocks": ["reason1", "reason2"],
+            "requests": ["reason1"],
+            "approves": ["reason1"],
+            "hipaa_violations": [],
+            "security_issues": [],
+            "recommendations": [],
+            "confidence": 0.0-1.0,
+            "reviewer": "CODELINC",
+            "timestamp": "ISO8601"
+          }
+
+          Always respond with valid JSON only. No markdown, no explanations outside JSON.
+          EOF
+          )
+
+          # Call Claude API directly (MCP Gateway integration)
+          RESPONSE=$(curl -s -X POST https://api.anthropic.com/v1/messages \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: ${CLAUDE_API_KEY}" \
+            -d "{
+              \"model\": \"claude-sonnet-4-20250514\",
+              \"max_tokens\": 2000,
+              \"system\": \"You are CODELINC, a healthcare code review AI agent. Always respond with valid JSON.\",
+              \"messages\": [{
+                \"role\": \"user\",
+                \"content\": \"$(echo "$PROMPT" | jq -Rs .)\",
+                \"git_diff\": \"$(cat /tmp/pr.diff | head -1000 | jq -Rs .)\",
+                \"pr_metadata\": {
+                  \"number\": ${{ github.event.pull_request.number }},
+                  \"author\": \"${{ github.event.pull_request.user.login }}\",
+                  \"title\": \"${{ github.event.pull_request.title }}\"
+                }
+              }]
+            }")
+
+          # Extract decision and score from response
+          DECISION=$(echo "$RESPONSE" | jq -r '.content[0].text' | jq -r '.decision')
+          RISK_SCORE=$(echo "$RESPONSE" | jq -r '.content[0].text' | jq -r '.risk_score')
+          BLOCKS=$(echo "$RESPONSE" | jq -r '.content[0].text' | jq -c '.blocks')
+          REQUESTS=$(echo "$RESPONSE" | jq -r '.content[0].text' | jq -c '.requests')
+          APPROVES=$(echo "$RESPONSE" | jq -r '.content[0].text' | jq -c '.approves')
+
+          echo "decision=${DECISION}" >> $GITHUB_OUTPUT
+          echo "risk_score=${RISK_SCORE}" >> $GITHUB_OUTPUT
+          echo "blocks=$(echo "$BLOCKS" | jq -c .)" >> $GITHUB_OUTPUT
+          echo "requests=$(echo "$REQUESTS" | jq -c .)" >> $GITHUB_OUTPUT
+          echo "approves=$(echo "$APPROVES" | jq -c .)" >> $GITHUB_OUTPUT
+
+          # Log full response for debugging
+          echo "Claude Response:" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          echo "$RESPONSE" | jq '.content[0].text' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Auto-approve or request review
+        id: github-update
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const decision = "${{ steps.claude-review.outputs.decision }}";
+            const riskScore = "${{ steps.claude-review.outputs.risk_score }}";
+            const blocks = JSON.parse('${{ steps.claude-review.outputs.blocks }}' || '[]');
+            const requests = JSON.parse('${{ steps.claude-review.outputs.requests }}' || '[]');
+            const approves = JSON.parse('${{ steps.claude-review.outputs.approves }}' || '[]');
+
+            let reviewComment = `## 🤖 CODELINC AI Review\n\n`;
+            reviewComment += `**Risk Score:** ${riskScore}/10\n`;
+            reviewComment += `**Decision:** ${decision}\n\n`;
+
+            if (blocks.length > 0) {
+              reviewComment += `### ❌ Blocking Issues\n${blocks.map(b => `- ${b}`).join('\n')}\n\n`;
+            }
+            if (requests.length > 0) {
+              reviewComment += `### ⚠️ Requires Review\n${requests.map(r => `- ${r}`).join('\n')}\n\n`;
+            }
+            if (approves.length > 0) {
+              reviewComment += `### ✅ Approved Items\n${approves.map(a => `- ${a}`).join('\n')}\n\n`;
+            }
+
+            reviewComment += `_Reviewed by CODELINC at ${new Date().toISOString()}_`;
+
+            // Post review comment
+            if (decision === "APPROVE") {
+              await github.rest.pulls.createReview({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+                body: reviewComment,
+                event: "APPROVE"
+              });
+            } else if (decision === "BLOCK") {
+              await github.rest.pulls.createReview({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+                body: reviewComment,
+                event: "REQUEST_CHANGES"
+              });
+            } else {
+              await github.rest.pulls.createReview({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+                body: reviewComment,
+                event: "COMMENT"
+              });
+            }
+
+      - name: Create Notion audit log entry
+        if: always()
+        env:
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_CI_CD_DB_ID }}
+        run: |
+          curl -X POST https://api.notion.com/v1/pages \
+            -H "Authorization: Bearer ${NOTION_API_KEY}" \
+            -H "Notion-Version: 2022-06-28" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"parent\": { \"database_id\": \"${NOTION_DATABASE_ID}\" },
+              \"properties\": {
+                \"Name\": { \"title\": [{ \"text\": { \"content\": \"PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}\" } }] },
+                \"Status\": { \"select\": { \"name\": \"${{ steps.claude-review.outputs.decision }}\" } },
+                \"Risk Score\": { \"number\": ${{ steps.claude-review.outputs.risk_score }} },
+                \"Reviewer\": { \"select\": { \"name\": \"CODELINC\" } },
+                \"PR Link\": { \"url\": \"${{ github.event.pull_request.html_url }}\" },
+                \"Timestamp\": { \"date\": { \"start\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" } }
+              }
+            }"
+
+      - name: Aggregate results
+        id: summary
+        if: always()
+        run: |
+          echo "## CODELINC Review Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Risk Score | ${{ steps.claude-review.outputs.risk_score }}/10 |" >> $GITHUB_STEP_SUMMARY
+          echo "| Decision | ${{ steps.claude-review.outputs.decision }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| HIPAA Violations | ${{ steps.hipaa-check.outputs.violations_found }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Coverage | ${{ steps.coverage.outputs.coverage_percent }}% |" >> $GITHUB_STEP_SUMMARY
